@@ -25,19 +25,19 @@ def train(layers, data, folder = 'run1'):
 		f1_summary = tf.summary.scalar('f1', f1);
 		summaries = tf.summary.merge_all();
 
-		sess = tf.Session();
+		sess = tf.Session(graph=graph);
 		saver = tf.train.Saver()
 		init = tf.global_variables_initializer()
 		sess.run(init)
 
 		writer = tf.summary.FileWriter('./tmp/logs/' + folder, sess.graph)
 
-		NUM_STEPS = 1000;
+		NUM_STEPS = 4000;
 
 		for step in range(NUM_STEPS):
 			sess.run(optimize, feed_dict={X_placeholder: X, y_placeholder: y});
 			if (step > 0) and ((step + 1) % 10 == 0):
-				summary = sess.run(summaries, feed_dict={X_placeholder: X_val, y_placeholder: y_val});
+				acc, prec, rec, f, summary = sess.run([accuracy, precision, recall, f1, summaries], feed_dict={X_placeholder: X_val, y_placeholder: y_val});
 				writer.add_summary(summary, step);
 				print('Step', step + 1, 'of', NUM_STEPS);
 
