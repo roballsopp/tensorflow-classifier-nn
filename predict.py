@@ -7,8 +7,6 @@ def slider(layers, x, model_path, skip=50):
 	input_layer_size, hidden_layer_size, num_labels = layers
 	slice_size = ((x.size // input_layer_size) * input_layer_size) - input_layer_size
 
-	print(x.size, slice_size)
-
 	graph = tf.Graph()
 	with graph.as_default():
 

@@ -3,6 +3,7 @@ import train
 import numpy as np
 import predict
 import loadData
+import time
 
 input_layer_size = 5513
 num_labels = 23
@@ -21,11 +22,15 @@ X = loadData.loadWav('./test_data/mono_dry.wav')
 
 print('wav loaded')
 
+print('Predicting...')
+
+start_time = time.time()
 predictions = predict.slider([input_layer_size, 50, num_labels], X, './tmp/model_run50_23_4000.ckpt')
+end_time = time.time()
 
 # predictions = predict.slide_predict([input_layer_size, 50, num_labels], X, './tmp/model_run50_23_4000.ckpt');
 
-print(predictions.shape)
+print('Predicting complete after', end_time - start_time, 'seconds')
 
 loadData.saveWav('./test_data/mono_dry_bounced.wav', np.amax(predictions, axis=1))
 
