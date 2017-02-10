@@ -3,7 +3,9 @@ import numpy as np
 import nn
 
 def train(layers, data, folder = 'run1'):
-	input_layer_size, hidden_layer_size, num_labels = layers
+	num_features = layers[0]
+	num_labels = layers[-1]
+
 	np.random.shuffle(data)
 
 	X = data['X'][:-1000]
@@ -13,16 +15,13 @@ def train(layers, data, folder = 'run1'):
 
 	graph = tf.Graph()
 	with graph.as_default():
-		X_placeholder = tf.placeholder(tf.float32, shape=(None, input_layer_size), name='X')
+		X_placeholder = tf.placeholder(tf.float32, shape=(None, num_features), name='X')
 		y_placeholder = tf.placeholder(tf.uint8, shape=(None, num_labels), name='y')
-		Theta1 = tf.Variable(nn.randInitializeWeights(input_layer_size, hidden_layer_size), name='Theta1')
-		bias1 = tf.Variable(nn.randInitializeWeights(hidden_layer_size, 1), name='bias1')
-		Theta2 = tf.Variable(nn.randInitializeWeights(hidden_layer_size, num_labels), name='Theta2')
-		bias2 = tf.Variable(nn.randInitializeWeights(num_labels, 1), name='bias2')
-		cost = nn.cost(X_placeholder, y_placeholder, Theta1, bias1, Theta2, bias2)
-		optimize = tf.train.GradientDescentOptimizer(0.5).minimize(cost)
+		weights, biases = nn.constructNN(layers)
+		cost = nn.cost(X_placeholder, y_placeholder, weights, biases)
+		optimize = tf.train.GradientDescentOptimizer(1.5).minimize(cost)
 
-		accuracy, precision, recall, f1 = nn.evaluate(X_placeholder, y_placeholder, Theta1, bias1, Theta2, bias2)
+		accuracy, precision, recall, f1 = nn.evaluate(X_placeholder, y_placeholder, weights, biases)
 
 		cost_summary = tf.summary.scalar('cost', cost)
 		accuracy_summary = tf.summary.scalar('accuracy', accuracy)

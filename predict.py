@@ -21,7 +21,7 @@ def slider(layers, x, model_path, skip=50):
 		for i in range(0, input_layer_size, skip):
 			tf_x_shifted = tf.slice(tf_x, [i], [slice_size])
 			tf_x_matrix = tf.reshape(tf_x_shifted, [-1, input_layer_size])
-			prediction = nn.forward_prop(tf_x_matrix, theta1, bias1, theta2, bias2)
+			prediction = nn.forward_prop(tf_x_matrix, (theta1, theta2), (bias1, bias2))
 			output_acc.append(prediction)
 
 		output = tf.reshape(tf.concat(1, output_acc), [-1, num_labels])

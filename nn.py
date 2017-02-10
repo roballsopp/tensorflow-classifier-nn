@@ -4,16 +4,37 @@ def randInitializeWeights(numInputs, numOutputs):
 	epsilon = 0.12
 	return tf.random_uniform([numOutputs, numInputs], minval=-epsilon, maxval=epsilon, dtype=tf.float32)
 
-def forward_prop(a1, Theta1, bias1, Theta2, bias2):
-	z2 = tf.matmul(a1, tf.transpose(Theta1)) + bias1
-	a2 = tf.sigmoid(z2)
-	z3 = tf.matmul(a2, tf.transpose(Theta2)) + bias2
-	return tf.sigmoid(z3)
+def constructNN(layers):
+	weights = []
+	biases = []
 
-def cost(X, y, Theta1, bias1, Theta2, bias2):
+	for l in range(len(layers) - 1):
+		num_inputs = layers[l]
+		num_outputs = layers[l+1]
+
+		theta_name = 'Theta' + str(l)
+		bias_name = 'bias' + str(l)
+
+		theta = tf.Variable(randInitializeWeights(num_inputs, num_outputs), name=theta_name)
+		bias = tf.Variable(randInitializeWeights(num_outputs, 1), name=bias_name)
+
+		weights.append(theta)
+		biases.append(bias)
+
+	return tuple(weights), tuple(biases)
+
+def forward_prop(a, weights, biases):
+	for l in range(len(weights)):
+		theta = weights[l]
+		bias = biases[l]
+		z = tf.matmul(a, tf.transpose(theta)) + bias
+		a = tf.sigmoid(z)
+	return a
+
+def cost(X, y, weights, biases):
 	y_num = tf.cast(y, tf.float32)
 	m = tf.to_float(tf.shape(X)[0])
-	a3 = forward_prop(X, Theta1, bias1, Theta2, bias2)
+	a3 = forward_prop(X, weights, biases)
 	y1 = -y_num * tf.log(a3)
 	y0 = (1 - y_num) * tf.log(1 - a3)
 	return tf.reduce_sum((y1 - y0) / m)
@@ -23,8 +44,8 @@ def regTerm(Theta1, Theta2, m, lam):
 	regTheta2 = tf.reduce_sum(Theta2 ** 2)
 	regTerm = lam / (2*m) * (regTheta1 + regTheta2)
 
-def evaluate(X_val, y_val, Theta1, bias1, Theta2, bias2):
-	y_hyp = forward_prop(X_val, Theta1, bias1, Theta2, bias2)
+def evaluate(X_val, y_val, weights, biases):
+	y_hyp = forward_prop(X_val, weights, biases)
 
 	correct_labels = tf.cast(y_val, tf.bool)
 	predicted_labels = tf.cast(tf.round(y_hyp), tf.bool)
