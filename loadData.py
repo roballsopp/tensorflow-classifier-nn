@@ -1,31 +1,28 @@
 import numpy as np
 import wave
+import struct
 
-def load(numFeatures, numLabels):
-	X_metal = np.fromfile('./training_data/X_dry.dat', dtype=np.float32)
-	y_metal = np.fromfile('./training_data/y_dry.dat', dtype=np.uint8)
-	X_avatar = np.fromfile('./training_data/avatar/X_dry.dat', dtype=np.float32)
-	y_avatar = np.fromfile('./training_data/avatar/y_dry.dat', dtype=np.uint8)
+def load(file_path):
+	with open(file_path, 'rb') as file:
+		header_id = file.read(4)
 
-	X_metal.shape = (-1, numFeatures)
-	y_metal.shape = (-1, numLabels)
+		if header_id != b'NDAT':
+			raise ValueError('Header id incorrect', header_id)
 
-	X_avatar.shape = (-1, numFeatures)
-	y_avatar.shape = (-1, numLabels)
+		num_features, num_labels, num_examples, label_offset = struct.unpack('<IIII', file.read(16))
 
-	X = np.vstack((X_metal, X_avatar))
-	y = np.vstack((y_metal, y_avatar))
+		example_dt = np.dtype(np.float32)
+		example_dt = example_dt.newbyteorder('<')
 
-	data = np.hstack((X, y))
+		data_dt = np.dtype([('X', example_dt, (num_features,)), ('y', np.uint8, (num_labels,))])
 
-	np.random.shuffle(data)
-
-	X, y = np.hsplit(data, np.array([numFeatures]))
-
-	print('X', X.shape)
-	print('y', y.shape)
-
-	return [X[:-1000], y[:-1000], X[-1000:], y[-1000:]]
+		return {
+			'data': np.fromfile(file, dtype=data_dt, count=num_examples),
+			'num_features': num_features,
+			'num_labels': num_labels,
+			'num_examples': num_examples,
+			'label_offset': label_offset
+		}
 
 def loadWav(filepath):
 	print('Loading wav', filepath)

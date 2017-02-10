@@ -1,9 +1,15 @@
 import tensorflow as tf
+import numpy as np
 import nn
 
 def train(layers, data, folder = 'run1'):
 	input_layer_size, hidden_layer_size, num_labels = layers
-	X, y, X_val, y_val = data
+	np.random.shuffle(data)
+
+	X = data['X'][:-1000]
+	y = data['y'][:-1000]
+	X_val = data['X'][-1000:]
+	y_val = data['y'][-1000:]
 
 	graph = tf.Graph()
 	with graph.as_default():
@@ -14,7 +20,7 @@ def train(layers, data, folder = 'run1'):
 		Theta2 = tf.Variable(nn.randInitializeWeights(hidden_layer_size, num_labels), name='Theta2')
 		bias2 = tf.Variable(nn.randInitializeWeights(num_labels, 1), name='bias2')
 		cost = nn.cost(X_placeholder, y_placeholder, Theta1, bias1, Theta2, bias2)
-		optimize = tf.train.GradientDescentOptimizer(0.6).minimize(cost)
+		optimize = tf.train.GradientDescentOptimizer(0.5).minimize(cost)
 
 		accuracy, precision, recall, f1 = nn.evaluate(X_placeholder, y_placeholder, Theta1, bias1, Theta2, bias2)
 
