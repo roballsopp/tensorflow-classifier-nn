@@ -70,8 +70,6 @@ def evaluate(X_val, y_val, weights, biases):
 	tf.summary.scalar('num_false_neg', num_false_neg)
 
 	num_total_pos = tf.reduce_sum(tf.cast(predicted_labels, tf.float32))
-	
-	tf.summary.scalar('num_total_pos', num_total_pos)
 
 	get_precision = lambda: (num_true_pos / num_total_pos)
 	get_recall = lambda: (num_true_pos / (num_true_pos + num_false_neg))
