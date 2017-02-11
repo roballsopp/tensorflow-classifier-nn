@@ -42,8 +42,8 @@ def train(layers, data, folder = 'run1'):
 		for step in range(NUM_STEPS):
 			sess.run(optimize, feed_dict={X_placeholder: X, y_placeholder: y})
 			if (step > 0) and ((step + 1) % 10 == 0):
-				acc, prec, rec, f, summary = sess.run([accuracy, precision, recall, f1, summaries], feed_dict={X_placeholder: X_val, y_placeholder: y_val})
-				writer.add_summary(summary, step)
+				results = sess.run([accuracy, precision, recall, f1, summaries], feed_dict={X_placeholder: X_val, y_placeholder: y_val})
+				writer.add_summary(results[4], step)
 				print('Step', step + 1, 'of', NUM_STEPS)
 
 		save_path = saver.save(sess, './tmp/model_' + folder + '.ckpt')

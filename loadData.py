@@ -9,7 +9,7 @@ def load(file_path):
 		if header_id != b'NDAT':
 			raise ValueError('Header id incorrect', header_id)
 
-		num_features, num_labels, num_examples, label_offset = struct.unpack('<IIII', file.read(16))
+		num_features, num_labels, num_examples, label_offset = struct.unpack('<IIIi', file.read(16))
 
 		example_dt = np.dtype(np.float32)
 		example_dt = example_dt.newbyteorder('<')
