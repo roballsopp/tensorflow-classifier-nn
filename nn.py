@@ -10,7 +10,7 @@ def constructNN(layers):
 
 	for l in range(len(layers) - 1):
 		num_inputs = layers[l]
-		num_outputs = layers[l+1]
+		num_outputs = layers[l + 1]
 
 		theta_name = 'Theta' + str(l)
 		bias_name = 'bias' + str(l)
@@ -42,7 +42,7 @@ def cost(X, y, weights, biases):
 def regTerm(Theta1, Theta2, m, lam):
 	regTheta1 = tf.reduce_sum(Theta1 ** 2)
 	regTheta2 = tf.reduce_sum(Theta2 ** 2)
-	regTerm = lam / (2*m) * (regTheta1 + regTheta2)
+	regTerm = lam / (2 * m) * (regTheta1 + regTheta2)
 
 def evaluate(X_val, y_val, weights, biases):
 	y_hyp = forward_prop(X_val, weights, biases)
@@ -64,11 +64,6 @@ def evaluate(X_val, y_val, weights, biases):
 	num_true_neg = tf.reduce_sum(tf.cast(true_neg, tf.float32))
 	num_false_neg = tf.reduce_sum(tf.cast(false_neg, tf.float32))
 
-	tf.summary.scalar('num_true_pos', num_true_pos)
-	tf.summary.scalar('num_false_pos', num_false_pos)
-	tf.summary.scalar('num_true_neg', num_true_neg)
-	tf.summary.scalar('num_false_neg', num_false_neg)
-
 	num_total_pos = tf.reduce_sum(tf.cast(predicted_labels, tf.float32))
 
 	get_precision = lambda: (num_true_pos / num_total_pos)
@@ -82,6 +77,13 @@ def evaluate(X_val, y_val, weights, biases):
 
 	f1 = tf.cond(tf.cast((precision + recall), tf.bool), get_f1_number, get_zero)
 
-	return [accuracy, precision, recall, f1]
-
-# J = (sum(sum(y1 - y0)) / m) + regTerm
+	return {
+		'accuracy': accuracy,
+		'precision': precision,
+		'recall': recall,
+		'f1': f1,
+		'num_true_pos': num_true_pos,
+		'num_false_pos': num_false_pos,
+		'num_true_neg': num_true_neg,
+		'num_false_neg': num_false_neg
+	}
