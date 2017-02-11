@@ -19,7 +19,7 @@ def train(layers, data, folder = 'run1'):
 		y_placeholder = tf.placeholder(tf.uint8, shape=(None, num_labels), name='y')
 		weights, biases = nn.constructNN(layers)
 		cost = nn.cost(X_placeholder, y_placeholder, weights, biases)
-		optimize = tf.train.GradientDescentOptimizer(1.5).minimize(cost)
+		optimize = tf.train.AdamOptimizer().minimize(cost)
 
 		accuracy, precision, recall, f1 = nn.evaluate(X_placeholder, y_placeholder, weights, biases)
 
