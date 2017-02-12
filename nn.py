@@ -1,4 +1,7 @@
 import tensorflow as tf
+import numpy as np
+
+MIN_FLOAT = np.nextafter(0, 1)
 
 def randInitializeWeights(numInputs, numOutputs):
 	epsilon = 0.12
@@ -34,7 +37,7 @@ def forward_prop(a, weights, biases):
 def cost(X, y, weights, biases):
 	y_num = tf.cast(y, tf.float32)
 	m = tf.to_float(tf.shape(X)[0])
-	a3 = forward_prop(X, weights, biases)
+	a3 = tf.clip_by_value(forward_prop(X, weights, biases), MIN_FLOAT, 1.0)  # clipping prevents underflow errors (log(0))
 	y1 = -y_num * tf.log(a3)
 	y0 = (1 - y_num) * tf.log(1 - a3)
 	return tf.reduce_sum((y1 - y0) / m)
