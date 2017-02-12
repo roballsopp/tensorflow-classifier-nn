@@ -21,14 +21,9 @@ def train(layers, data, folder='run1'):
 		metrics = nn.evaluate(X_val, y_val, weights, biases)
 
 		tf.summary.scalar('cost', train_cost)
-		tf.summary.scalar('accuracy', metrics['accuracy'])
-		tf.summary.scalar('precision', metrics['precision'])
-		tf.summary.scalar('recall', metrics['recall'])
-		tf.summary.scalar('f1', metrics['f1'])
-		tf.summary.scalar('num_true_pos', metrics['num_true_pos'])
-		tf.summary.scalar('num_false_pos', metrics['num_false_pos'])
-		tf.summary.scalar('num_true_neg', metrics['num_true_neg'])
-		tf.summary.scalar('num_false_neg', metrics['num_false_neg'])
+
+		for metric_name in metrics:
+			tf.summary.scalar(metric_name, metrics[metric_name])
 
 		summaries = tf.summary.merge_all()
 
