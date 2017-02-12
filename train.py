@@ -3,27 +3,22 @@ import numpy as np
 import nn
 
 def train(layers, data, folder='run1'):
-	num_features = layers[0]
-	num_labels = layers[-1]
-
 	np.random.shuffle(data)
-
-	X = data['X'][:-1000]
-	y = data['y'][:-1000]
-	X_val = data['X'][-1000:]
-	y_val = data['y'][-1000:]
 
 	graph = tf.Graph()
 	with graph.as_default():
-		X_placeholder = tf.placeholder(tf.float32, shape=(None, num_features), name='X')
-		y_placeholder = tf.placeholder(tf.uint8, shape=(None, num_labels), name='y')
+		X = tf.constant(data['X'][:-1000])
+		y = tf.constant(data['y'][:-1000])
+		X_val = tf.constant(data['X'][-1000:])
+		y_val = tf.constant(data['y'][-1000:])
+
 		weights, biases = nn.constructNN(layers)
 
-		train_cost = nn.cost(X_placeholder, y_placeholder, weights, biases)
+		train_cost = nn.cost(X, y, weights, biases)
 
 		optimize = tf.train.AdamOptimizer().minimize(train_cost)
 
-		metrics = nn.evaluate(X_placeholder, y_placeholder, weights, biases)
+		metrics = nn.evaluate(X_val, y_val, weights, biases)
 
 		tf.summary.scalar('cost', train_cost)
 		tf.summary.scalar('accuracy', metrics['accuracy'])
@@ -42,14 +37,14 @@ def train(layers, data, folder='run1'):
 		init = tf.global_variables_initializer()
 		sess.run(init)
 
-		summary_writer = tf.summary.FileWriter('./tmp/logs/' + folder, sess.graph)
+		summary_writer = tf.summary.FileWriter('./tmp/logs/' + folder)
 
 		NUM_STEPS = 4000
 
 		for step in range(NUM_STEPS):
-			sess.run(optimize, feed_dict={X_placeholder: X, y_placeholder: y})
+			sess.run(optimize)
 			if (step > 0) and ((step + 1) % 10 == 0):
-				summary_results = sess.run(summaries, feed_dict={X_placeholder: X_val, y_placeholder: y_val})
+				summary_results = sess.run(summaries)
 				summary_writer.add_summary(summary_results, step)
 				print('Step', step + 1, 'of', NUM_STEPS)
 
