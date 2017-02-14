@@ -1,19 +1,24 @@
 import tensorflow as tf
 import numpy as np
 
-MIN_FLOAT = np.nextafter(0, 1)
+ALMOST_ZERO = np.nextafter(np.float32(0), np.float32(1))
+ALMOST_ONE = np.nextafter(np.float32(1), np.float32(0))
+
+class Layer:
+	def __init__(self, w, b):
+		self.w = w
+		self.b = b
 
 def randInitializeWeights(numInputs, numOutputs):
 	epsilon = 0.12
 	return tf.random_uniform([numOutputs, numInputs], minval=-epsilon, maxval=epsilon, dtype=tf.float32)
 
-def constructNN(layers):
-	weights = []
-	biases = []
+def _construct_layers(layer_defs):
+	layers = []
 
-	for l in range(len(layers) - 1):
-		num_inputs = layers[l]
-		num_outputs = layers[l + 1]
+	for l in range(len(layer_defs) - 1):
+		num_inputs = layer_defs[l]
+		num_outputs = layer_defs[l + 1]
 
 		theta_name = 'Theta' + str(l)
 		bias_name = 'bias' + str(l)
@@ -21,72 +26,79 @@ def constructNN(layers):
 		theta = tf.Variable(randInitializeWeights(num_inputs, num_outputs), name=theta_name)
 		bias = tf.Variable(randInitializeWeights(num_outputs, 1), name=bias_name)
 
-		weights.append(theta)
-		biases.append(bias)
+		layers.append(Layer(theta, bias))
 
-	return tuple(weights), tuple(biases)
+	return tuple(layers)
 
-def forward_prop(a, weights, biases):
-	for l in range(len(weights)):
-		theta = weights[l]
-		bias = biases[l]
-		z = tf.matmul(a, tf.transpose(theta)) + bias
-		a = tf.sigmoid(z)
-	return a
+class FullyConnected:
+	def __init__(self, layer_defs):
+		self.layers = _construct_layers(layer_defs)
 
-def cost(X, y, weights, biases):
-	y_num = tf.cast(y, tf.float32)
-	m = tf.to_float(tf.shape(X)[0])
-	a3 = tf.clip_by_value(forward_prop(X, weights, biases), MIN_FLOAT, 1.0)  # clipping prevents underflow errors (log(0))
-	y1 = -y_num * tf.log(a3)
-	y0 = (1 - y_num) * tf.log(1 - a3)
-	return tf.reduce_sum((y1 - y0) / m)
+	def forward_prop(self, a):
+		for layer in self.layers:
+			z = tf.matmul(a, tf.transpose(layer.w)) + layer.b
+			a = tf.sigmoid(z)
+		return a
 
-def regTerm(Theta1, Theta2, m, lam):
-	regTheta1 = tf.reduce_sum(Theta1 ** 2)
-	regTheta2 = tf.reduce_sum(Theta2 ** 2)
-	regTerm = lam / (2 * m) * (regTheta1 + regTheta2)
+	def cross_entropy(self, X, y):
+		y_num = tf.cast(y, tf.float32)
+		m = tf.to_float(tf.shape(X)[0])
+		a3 = self.forward_prop(X)
+		# clipping prevents underflow errors (log(0))
+		y1 = y_num * -tf.log(tf.clip_by_value(a3, ALMOST_ZERO, 1))
+		y0 = (1 - y_num) * tf.log(1 - tf.clip_by_value(a3, 0, ALMOST_ONE))
 
-def evaluate(X_val, y_val, weights, biases):
-	y_hyp = forward_prop(X_val, weights, biases)
+		return tf.reduce_sum((y1 - y0) / m)
 
-	correct_labels = tf.cast(y_val, tf.bool)
-	predicted_labels = tf.cast(tf.round(y_hyp), tf.bool)
+	def evaluate(self, X_val, y_val):
+		y_hyp = self.forward_prop(X_val)
 
-	correct_prediction = tf.equal(correct_labels, predicted_labels)
+		correct_labels = tf.cast(y_val, tf.bool)
+		predicted_labels = tf.cast(tf.round(y_hyp), tf.bool)
 
-	true_pos = tf.logical_and(correct_labels, predicted_labels)
-	false_pos = tf.logical_and(tf.logical_not(correct_labels), predicted_labels)
-	true_neg = tf.logical_and(tf.logical_not(correct_labels), tf.logical_not(predicted_labels))
-	false_neg = tf.logical_and(correct_labels, tf.logical_not(predicted_labels))
+		correct_prediction = tf.equal(correct_labels, predicted_labels)
 
-	accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+		true_pos = tf.logical_and(correct_labels, predicted_labels)
+		false_pos = tf.logical_and(tf.logical_not(correct_labels), predicted_labels)
+		true_neg = tf.logical_and(tf.logical_not(correct_labels), tf.logical_not(predicted_labels))
+		false_neg = tf.logical_and(correct_labels, tf.logical_not(predicted_labels))
 
-	num_true_pos = tf.reduce_sum(tf.cast(true_pos, tf.float32))
-	num_false_pos = tf.reduce_sum(tf.cast(false_pos, tf.float32))
-	num_true_neg = tf.reduce_sum(tf.cast(true_neg, tf.float32))
-	num_false_neg = tf.reduce_sum(tf.cast(false_neg, tf.float32))
+		accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
-	num_total_pos = tf.reduce_sum(tf.cast(predicted_labels, tf.float32))
+		num_true_pos = tf.reduce_sum(tf.cast(true_pos, tf.float32))
+		num_false_pos = tf.reduce_sum(tf.cast(false_pos, tf.float32))
+		num_true_neg = tf.reduce_sum(tf.cast(true_neg, tf.float32))
+		num_false_neg = tf.reduce_sum(tf.cast(false_neg, tf.float32))
 
-	get_precision = lambda: (num_true_pos / num_total_pos)
-	get_recall = lambda: (num_true_pos / (num_true_pos + num_false_neg))
-	get_zero = lambda: tf.constant(0, dtype=tf.float32)
+		num_total_pos = tf.reduce_sum(tf.cast(predicted_labels, tf.float32))
 
-	precision = tf.cond(tf.cast(num_total_pos, tf.bool), get_precision, get_zero)
-	recall = tf.cond(tf.cast((num_true_pos + num_false_neg), tf.bool), get_recall, get_zero)
+		get_precision = lambda: (num_true_pos / num_total_pos)
+		get_recall = lambda: (num_true_pos / (num_true_pos + num_false_neg))
+		get_zero = lambda: tf.constant(0, dtype=tf.float32)
 
-	get_f1_number = lambda: (2 * precision * recall / (precision + recall))
+		precision = tf.cond(tf.cast(num_total_pos, tf.bool), get_precision, get_zero)
+		recall = tf.cond(tf.cast((num_true_pos + num_false_neg), tf.bool), get_recall, get_zero)
 
-	f1 = tf.cond(tf.cast((precision + recall), tf.bool), get_f1_number, get_zero)
+		get_f1_number = lambda: (2 * precision * recall / (precision + recall))
 
-	return {
-		'accuracy': accuracy,
-		'precision': precision,
-		'recall': recall,
-		'f1': f1,
-		'num_true_pos': num_true_pos,
-		'num_false_pos': num_false_pos,
-		'num_true_neg': num_true_neg,
-		'num_false_neg': num_false_neg
-	}
+		f1 = tf.cond(tf.cast((precision + recall), tf.bool), get_f1_number, get_zero)
+
+		return {
+			'accuracy': accuracy,
+			'precision': precision,
+			'recall': recall,
+			'f1': f1,
+			'num_true_pos': num_true_pos,
+			'num_false_pos': num_false_pos,
+			'num_true_neg': num_true_neg,
+			'num_false_neg': num_false_neg
+		}
+
+	def get_saver(self):
+		variables_to_save = []
+
+		for layer in self.layers:
+			variables_to_save.append(layer.w)
+			variables_to_save.append(layer.b)
+
+		return tf.train.Saver(variables_to_save)

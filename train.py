@@ -12,13 +12,13 @@ def train(layers, data, folder='run1'):
 		X_val = tf.constant(data['X'][-1000:])
 		y_val = tf.constant(data['y'][-1000:])
 
-		weights, biases = nn.constructNN(layers)
+		net = nn.FullyConnected(layers)
 
-		train_cost = nn.cost(X, y, weights, biases)
+		train_cost = net.cross_entropy(X, y)
 
 		optimize = tf.train.AdamOptimizer().minimize(train_cost)
 
-		metrics = nn.evaluate(X_val, y_val, weights, biases)
+		metrics = net.evaluate(X_val, y_val)
 
 		tf.summary.scalar('cost', train_cost)
 
@@ -28,11 +28,12 @@ def train(layers, data, folder='run1'):
 		summaries = tf.summary.merge_all()
 
 		sess = tf.Session(graph=graph)
-		session_saver = tf.train.Saver(list(weights) + list(biases))
+
+		session_saver = net.get_saver()
+		summary_writer = tf.summary.FileWriter('./tmp/logs/' + folder)
+
 		init = tf.global_variables_initializer()
 		sess.run(init)
-
-		summary_writer = tf.summary.FileWriter('./tmp/logs/' + folder)
 
 		NUM_STEPS = 4000
 
