@@ -7,23 +7,31 @@ def train(layers, data, folder='run1'):
 
 	graph = tf.Graph()
 	with graph.as_default():
-		X = tf.constant(data['X'][:-1000])
-		y = tf.constant(data['y'][:-1000])
+		X_train = tf.constant(data['X'][:-1000])
+		y_train = tf.constant(data['y'][:-1000])
 		X_val = tf.constant(data['X'][-1000:])
 		y_val = tf.constant(data['y'][-1000:])
 
 		net = nn.FullyConnected(layers)
 
-		train_cost = net.cross_entropy(X, y)
+		hyp_train = net.forward_prop(X_train)
+		hyp_val = net.forward_prop(X_val)
+
+		train_cost = nn.cross_entropy(hyp_train, y_train)
+		val_cost = nn.cross_entropy(hyp_val, y_val)
 
 		optimize = tf.train.AdamOptimizer().minimize(train_cost)
 
-		metrics = net.evaluate(X_val, y_val)
+		metrics_train = nn.evaluate(hyp_train, y_train)
+		metrics_val = nn.evaluate(hyp_val, y_val)
 
-		tf.summary.scalar('cost', train_cost)
+		tf.summary.scalar('cost_train', train_cost)
+		tf.summary.scalar('cost_val', val_cost)
 
-		for metric_name in metrics:
-			tf.summary.scalar(metric_name, metrics[metric_name])
+		tf.summary.scalar('accuracy_train', metrics_train['accuracy'])
+
+		for metric_name in metrics_val:
+			tf.summary.scalar(metric_name, metrics_val[metric_name])
 
 		summaries = tf.summary.merge_all()
 
