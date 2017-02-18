@@ -22,50 +22,69 @@ def eval_val(metrics, cost):
 	return tf.summary.merge(summaries)
 
 def train(layers, data, folder='run1'):
-	num_features = layers[0]
-	num_labels = layers[-1]
-
 	np.random.shuffle(data)
 
-	X_train = data['X'][:-1000]
-	y_train = data['y'][:-1000]
-	X_val = data['X'][-1000:]
-	y_val = data['y'][-1000:]
+	np_x_train = data['X'][:-1000]
+	np_y_train = data['y'][:-1000]
+	np_x_val = data['X'][-1000:]
+	np_y_val = data['y'][-1000:]
 
 	graph = tf.Graph()
 	with graph.as_default():
-		X_pl = tf.placeholder(tf.float32, shape=(None, num_features))
-		y_pl = tf.placeholder(tf.uint8, shape=(None, num_labels))
+		x_train_init = tf.placeholder(dtype=tf.float32, shape=np_x_train.shape)
+		y_train_init = tf.placeholder(dtype=tf.uint8, shape=np_y_train.shape)
+		x_val_init = tf.placeholder(dtype=tf.float32, shape=np_x_val.shape)
+		y_val_init = tf.placeholder(dtype=tf.uint8, shape=np_y_val.shape)
+
+		x_train = tf.Variable(x_train_init, trainable=False)
+		y_train = tf.Variable(y_train_init, trainable=False)
+		x_val = tf.Variable(x_val_init, trainable=False)
+		y_val = tf.Variable(y_val_init, trainable=False)
 
 		net = nn.FullyConnected(layers)
 
-		hyp = net.forward_prop(X_pl)
-		cost = nn.cross_entropy(hyp, y_pl)
-		optimize = tf.train.AdamOptimizer().minimize(cost)
+		hyp_train = net.forward_prop(x_train)
+		hyp_val = net.forward_prop(x_val)
 
-		metrics = nn.evaluate(hyp, y_pl)
+		cost_train = nn.cross_entropy(hyp_train, y_train)
+		cost_val = nn.cross_entropy(hyp_val, y_val)
 
-		train_summaries = eval_train(metrics, cost)
-		val_summaries = eval_val(metrics, cost)
+		optimize = tf.train.AdamOptimizer().minimize(cost_train)
+
+		metrics_train = nn.evaluate(hyp_train, y_train)
+		metrics_val = nn.evaluate(hyp_val, y_val)
+
+		summaries_train = eval_train(metrics_train, cost_train)
+		summaries_val = eval_val(metrics_val, cost_val)
 
 		init = tf.global_variables_initializer()
 
 		with tf.Session() as sess:
 			session_saver = net.get_saver()
 			summary_writer = tf.summary.FileWriter('./tmp/logs/' + folder)
-			sess.run(init)
+			sess.run([
+				x_train.initializer,
+				y_train.initializer,
+				x_val.initializer,
+				y_val.initializer,
+				init
+			], feed_dict={
+				x_train_init: np_x_train,
+				y_train_init: np_y_train,
+				x_val_init: np_x_val,
+				y_val_init: np_y_val
+			})
 
 			NUM_STEPS = 4000
 
 			def add_summary(step):
-				train_results = sess.run(train_summaries, feed_dict={X_pl: X_train, y_pl: y_train})
-				val_results = sess.run(val_summaries, feed_dict={X_pl: X_val, y_pl: y_val})
+				train_results, val_results = sess.run([summaries_train, summaries_val])
 				summary_writer.add_summary(train_results, step)
 				summary_writer.add_summary(val_results, step)
 				print('Step', step + 1, 'of', NUM_STEPS)
 
 			for step in range(NUM_STEPS):
-				sess.run(optimize, feed_dict={X_pl: X_train, y_pl: y_train})
+				sess.run(optimize)
 				every_n_steps(10, step, add_summary)
 
 			save_path = session_saver.save(sess, './tmp/model_' + folder + '.ckpt')
