@@ -2,15 +2,31 @@ import train
 import predict
 import loadData
 import time
+from argparse import ArgumentParser
+import logging
 
-dataset = loadData.load('./training_data/**/*.ndat')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
-input_layer_size = dataset.num_features
-num_labels = dataset.num_labels
+parser = ArgumentParser()
+
+parser.add_argument('input_pattern', help="Specify input file(s) using glob pattern")
+parser.add_argument('layers',
+										help="Specify nn hidden layer architecture. Provide space separated integers to specify the number of neurons in heach hidden layer.",
+										nargs='*',
+										type=int)
+
+args = parser.parse_args()
+
+logging.info('Loading files matching ' + args.input_pattern + '...')
+dataset = loadData.load(args.input_pattern)
+logging.info('Files loaded successfully. Loaded ' + str(dataset.num_examples) + ' training examples')
+
+layers = [dataset.num_features] + args.layers + [dataset.num_labels]
+logging.info('Training neural network with architecture ' + ', '.join(map(str, layers)) + '...')
 
 start_time = time.time()
 
-train.train((input_layer_size, 100, 50, num_labels), dataset)
+train.train(layers, dataset)
 
 # X = loadData.loadWav('./test_data/435.wav')
 # print('wav loaded')

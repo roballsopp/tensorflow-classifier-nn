@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 import nn
 import time
+import logging
 
 def every_n_steps(n, step, callback):
 	if (step > 0) and ((step + 1) % n == 0):
@@ -68,11 +69,11 @@ def train(layers, dataset):
 				train_results, val_results = sess.run([summaries_train, summaries_val])
 				summary_writer.add_summary(train_results, step)
 				summary_writer.add_summary(val_results, step)
-				print('Step', step + 1, 'of', NUM_STEPS)
+				logging.info('Step ' + str(step + 1) + ' of ' + str(NUM_STEPS))
 
 			for step in range(NUM_STEPS):
 				sess.run(optimize)
 				every_n_steps(10, step, add_summary)
 
 			save_path = session_saver.save(sess, './tmp/model_' + run_name + '.ckpt')
-			print("Model saved in file: %s" % save_path)
+			logging.info("Model saved in file: %s" % save_path)
