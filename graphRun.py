@@ -10,7 +10,7 @@ num_labels = dataset.num_labels
 
 start_time = time.time()
 
-train.train((input_layer_size, 100, 50, num_labels), dataset, 'run100_50_1_4000_no_inv_offset_adam_glob')
+train.train((input_layer_size, 100, 50, num_labels), dataset)
 
 # X = loadData.loadWav('./test_data/435.wav')
 # print('wav loaded')

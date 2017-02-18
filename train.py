@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import nn
+import time
 
 def every_n_steps(n, step, callback):
 	if (step > 0) and ((step + 1) % n == 0):
@@ -28,7 +29,8 @@ class TrainerGraph:
 		return tf.summary.merge(summaries)
 
 
-def train(layers, dataset, folder='run1'):
+def train(layers, dataset):
+	run_name = '_'.join(map(str, layers)) + ' - ' + time.strftime('%Y-%m-%w_%H-%M-%S')
 	dataset.shuffle()
 
 	x_train = dataset.features[:-1000]
@@ -52,7 +54,7 @@ def train(layers, dataset, folder='run1'):
 
 		with tf.Session() as sess:
 			session_saver = net.get_saver()
-			summary_writer = tf.summary.FileWriter('./tmp/logs/' + folder)
+			summary_writer = tf.summary.FileWriter('./tmp/logs/' + run_name)
 			sess.run(init, feed_dict={
 				graph_train.x_init: x_train,
 				graph_train.y_init: y_train,
@@ -72,5 +74,5 @@ def train(layers, dataset, folder='run1'):
 				sess.run(optimize)
 				every_n_steps(10, step, add_summary)
 
-			save_path = session_saver.save(sess, './tmp/model_' + folder + '.ckpt')
+			save_path = session_saver.save(sess, './tmp/model_' + run_name + '.ckpt')
 			print("Model saved in file: %s" % save_path)
