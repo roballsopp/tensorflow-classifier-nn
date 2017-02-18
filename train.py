@@ -6,73 +6,58 @@ def every_n_steps(n, step, callback):
 	if (step > 0) and ((step + 1) % n == 0):
 		callback(step)
 
-def eval_train(metrics, cost):
-	return tf.summary.merge([
-		tf.summary.scalar('cost_train', cost),
-		tf.summary.scalar('accuracy_train', metrics['accuracy'])
-	])
+class TrainerGraph:
+	def __init__(self, net, x_shape, y_shape):
+		self.x_init = tf.placeholder(dtype=tf.float32, shape=x_shape)
+		self.y_init = tf.placeholder(dtype=tf.uint8, shape=y_shape)
 
-def eval_val(metrics, cost):
-	summaries = [tf.summary.scalar('cost_val', cost)]
+		self.x = tf.Variable(self.x_init, trainable=False)
+		self.y = tf.Variable(self.y_init, trainable=False)
 
-	for metric_name in metrics:
-		summary = tf.summary.scalar(metric_name, metrics[metric_name])
-		summaries.append(summary)
+		self.hyp = net.forward_prop(self.x)
+		self.cost = nn.cross_entropy(self.hyp, self.y)
 
-	return tf.summary.merge(summaries)
+	def evaluate(self, summary_namespace):
+		metrics = nn.evaluate(self.hyp, self.y)
+		summaries = [tf.summary.scalar('cost_' + summary_namespace, self.cost)]
+
+		for metric_name in metrics:
+			summary = tf.summary.scalar(metric_name + '_' + summary_namespace, metrics[metric_name])
+			summaries.append(summary)
+
+		return tf.summary.merge(summaries)
+
 
 def train(layers, data, folder='run1'):
 	np.random.shuffle(data)
 
-	np_x_train = data['X'][:-1000]
-	np_y_train = data['y'][:-1000]
-	np_x_val = data['X'][-1000:]
-	np_y_val = data['y'][-1000:]
+	x_train = data['X'][:-1000]
+	y_train = data['y'][:-1000]
+	x_val = data['X'][-1000:]
+	y_val = data['y'][-1000:]
 
 	graph = tf.Graph()
 	with graph.as_default():
-		x_train_init = tf.placeholder(dtype=tf.float32, shape=np_x_train.shape)
-		y_train_init = tf.placeholder(dtype=tf.uint8, shape=np_y_train.shape)
-		x_val_init = tf.placeholder(dtype=tf.float32, shape=np_x_val.shape)
-		y_val_init = tf.placeholder(dtype=tf.uint8, shape=np_y_val.shape)
-
-		x_train = tf.Variable(x_train_init, trainable=False)
-		y_train = tf.Variable(y_train_init, trainable=False)
-		x_val = tf.Variable(x_val_init, trainable=False)
-		y_val = tf.Variable(y_val_init, trainable=False)
-
 		net = nn.FullyConnected(layers)
 
-		hyp_train = net.forward_prop(x_train)
-		hyp_val = net.forward_prop(x_val)
+		graph_train = TrainerGraph(net, x_train.shape, y_train.shape)
+		graph_val = TrainerGraph(net, x_val.shape, y_val.shape)
 
-		cost_train = nn.cross_entropy(hyp_train, y_train)
-		cost_val = nn.cross_entropy(hyp_val, y_val)
+		optimize = tf.train.AdamOptimizer().minimize(graph_train.cost)
 
-		optimize = tf.train.AdamOptimizer().minimize(cost_train)
-
-		metrics_train = nn.evaluate(hyp_train, y_train)
-		metrics_val = nn.evaluate(hyp_val, y_val)
-
-		summaries_train = eval_train(metrics_train, cost_train)
-		summaries_val = eval_val(metrics_val, cost_val)
+		summaries_train = graph_train.evaluate('train')
+		summaries_val = graph_val.evaluate('val')
 
 		init = tf.global_variables_initializer()
 
 		with tf.Session() as sess:
 			session_saver = net.get_saver()
 			summary_writer = tf.summary.FileWriter('./tmp/logs/' + folder)
-			sess.run([
-				x_train.initializer,
-				y_train.initializer,
-				x_val.initializer,
-				y_val.initializer,
-				init
-			], feed_dict={
-				x_train_init: np_x_train,
-				y_train_init: np_y_train,
-				x_val_init: np_x_val,
-				y_val_init: np_y_val
+			sess.run(init, feed_dict={
+				graph_train.x_init: x_train,
+				graph_train.y_init: y_train,
+				graph_val.x_init: x_val,
+				graph_val.y_init: y_val
 			})
 
 			NUM_STEPS = 4000
