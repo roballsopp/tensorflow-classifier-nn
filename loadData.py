@@ -1,28 +1,88 @@
 import numpy as np
 import wave
 import struct
+import glob
 
-def load(file_path):
-	with open(file_path, 'rb') as file:
-		header_id = file.read(4)
+class DataSet:
+	def __init__(self, data, label_offset=0):
+		self.data = data
+		self.label_offset = label_offset
 
-		if header_id != b'NDAT':
-			raise ValueError('Header id incorrect', header_id)
+	@property
+	def features(self):
+		return self.data['X']
 
-		num_features, num_labels, num_examples, label_offset = struct.unpack('<IIIi', file.read(16))
+	@property
+	def labels(self):
+		return self.data['y']
 
-		example_dt = np.dtype(np.float32)
-		example_dt = example_dt.newbyteorder('<')
+	@property
+	def num_features(self):
+		return self.data['X'].shape[1]
 
-		data_dt = np.dtype([('X', example_dt, (num_features,)), ('y', np.uint8, (num_labels,))])
+	@property
+	def num_labels(self):
+		return self.data['y'].shape[1]
 
-		return {
-			'data': np.fromfile(file, dtype=data_dt, count=num_examples),
-			'num_features': num_features,
-			'num_labels': num_labels,
-			'num_examples': num_examples,
-			'label_offset': label_offset
-		}
+	@property
+	def num_examples(self):
+		return self.data.shape[0]
+
+	def shuffle(self):
+		np.random.shuffle(self.data)
+		return self
+
+	@staticmethod
+	def from_file(file_path):
+		with open(file_path, 'rb') as file:
+			header_id = file.read(4)
+
+			if header_id != b'NDAT':
+				raise ValueError('Header id incorrect', header_id)
+
+			num_features, num_labels, num_examples, label_offset = struct.unpack('<IIIi', file.read(16))
+
+			example_dt = np.dtype(np.float32)
+			example_dt = example_dt.newbyteorder('<')
+
+			data_dt = np.dtype([('X', example_dt, (num_features,)), ('y', np.uint8, (num_labels,))])
+
+			data = np.fromfile(file, dtype=data_dt, count=num_examples)
+
+			return DataSet(data, label_offset)
+
+	@staticmethod
+	def merge(datasets):
+		if len(datasets) < 2:
+			raise ValueError('You must provide at least two datasets to merge')
+
+		validation_dataset = datasets[0]
+		data_arrays = []
+
+		for dataset in datasets:
+			if dataset.label_offset != validation_dataset.label_offset:
+				raise ValueError('Datasets must have the same label offset to be merged')
+
+			data_arrays.append(dataset.data)
+
+		return DataSet(np.concatenate(data_arrays), validation_dataset.label_offset)
+
+def load(glob_pattern):
+	filenames = glob.glob(glob_pattern, recursive=True)
+
+	if len(filenames) == 1:
+		return DataSet.from_file(filenames[0])
+
+	if len(filenames) == 0:
+		raise ValueError('No files found')
+
+	datasets = []
+
+	for filename in filenames:
+		datasets.append(DataSet.from_file(filename))
+
+	return DataSet.merge(datasets)
+
 
 def loadWav(filepath):
 	print('Loading wav', filepath)

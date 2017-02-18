@@ -28,13 +28,13 @@ class TrainerGraph:
 		return tf.summary.merge(summaries)
 
 
-def train(layers, data, folder='run1'):
-	np.random.shuffle(data)
+def train(layers, dataset, folder='run1'):
+	dataset.shuffle()
 
-	x_train = data['X'][:-1000]
-	y_train = data['y'][:-1000]
-	x_val = data['X'][-1000:]
-	y_val = data['y'][-1000:]
+	x_train = dataset.features[:-1000]
+	y_train = dataset.labels[:-1000]
+	x_val = dataset.features[-1000:]
+	y_val = dataset.labels[-1000:]
 
 	graph = tf.Graph()
 	with graph.as_default():
