@@ -4,16 +4,23 @@ import predict
 import loadData
 import time
 
-avatar = loadData.load('./training_data/avatar/kit1.ndat')
+avatar1 = loadData.load('./training_data/avatar/kit1.ndat')
+avatar2 = loadData.load('./training_data/avatar/kit2.ndat')
+avatar3 = loadData.load('./training_data/avatar/kit3.ndat')
+metal1 = loadData.load('./training_data/metal/kit1.ndat')
+metal2 = loadData.load('./training_data/metal/kit2.ndat')
+vintage1 = loadData.load('./training_data/vintage/kit1.ndat')
+vintage2 = loadData.load('./training_data/vintage/kit2.ndat')
+vintage3 = loadData.load('./training_data/vintage/kit3.ndat')
 
-input_layer_size = avatar['num_features']
-num_labels = avatar['num_labels']
+data = np.concatenate((avatar1['data'], avatar2['data'], avatar3['data'], metal1['data'], metal2['data'], vintage1['data'], vintage2['data'], vintage3['data']))
+
+input_layer_size = avatar1['num_features']
+num_labels = avatar1['num_labels']
 
 start_time = time.time()
 
-train.train([input_layer_size, 50, num_labels], avatar['data'], 'run50_1_4000')
-# train.train([input_layer_size, 300, num_labels], data, 'run300_2000');
-# train.train([input_layer_size, 500, num_labels], data, 'run500_2000');
+train.train((input_layer_size, 100, 50, num_labels), data, 'run100_50_1_4000_no_inv_offset_adam_3kits_pl')
 
 # X = loadData.loadWav('./test_data/435.wav')
 # print('wav loaded')
