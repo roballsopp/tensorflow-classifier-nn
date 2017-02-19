@@ -55,7 +55,7 @@ def train(layers, dataset):
 
 		with tf.Session() as sess:
 			session_saver = net.get_saver()
-			summary_writer = tf.summary.FileWriter('./tmp/logs/' + run_name)
+			summary_writer = tf.summary.FileWriter('./tmp/' + run_name)
 			sess.run(init, feed_dict={
 				graph_train.x_init: x_train,
 				graph_train.y_init: y_train,
@@ -71,9 +71,13 @@ def train(layers, dataset):
 				summary_writer.add_summary(val_results, step)
 				logging.info('Step ' + str(step + 1) + ' of ' + str(NUM_STEPS))
 
+			def save_model(step=None):
+				save_path = session_saver.save(sess, './tmp/' + run_name + '/model', global_step=step)
+				logging.info("Model saved at: %s" % save_path)
+
 			for step in range(NUM_STEPS):
 				sess.run(optimize)
 				every_n_steps(10, step, add_summary)
+				every_n_steps(100, step, save_model)
 
-			save_path = session_saver.save(sess, './tmp/model_' + run_name + '.ckpt')
-			logging.info("Model saved in file: %s" % save_path)
+			save_model()
