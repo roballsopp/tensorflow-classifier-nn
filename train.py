@@ -30,7 +30,7 @@ class TrainerGraph:
 		return tf.summary.merge(summaries)
 
 
-def train(layers, dataset):
+def train(layers, dataset, num_steps=4000):
 	run_name = '_'.join(map(str, layers)) + ' - ' + time.strftime('%Y-%m-%w_%H-%M-%S')
 	dataset.shuffle()
 
@@ -63,19 +63,17 @@ def train(layers, dataset):
 				graph_val.y_init: y_val
 			})
 
-			NUM_STEPS = 4000
-
 			def add_summary(step):
 				train_results, val_results = sess.run([summaries_train, summaries_val])
 				summary_writer.add_summary(train_results, step)
 				summary_writer.add_summary(val_results, step)
-				logging.info('Step ' + str(step + 1) + ' of ' + str(NUM_STEPS))
+				logging.info('Step ' + str(step + 1) + ' of ' + str(num_steps))
 
 			def save_model(step=None):
 				save_path = session_saver.save(sess, './tmp/' + run_name + '/model', global_step=step)
 				logging.info("Model saved at: %s" % save_path)
 
-			for step in range(NUM_STEPS):
+			for step in range(num_steps):
 				sess.run(optimize)
 				every_n_steps(10, step, add_summary)
 				every_n_steps(100, step, save_model)

@@ -14,6 +14,7 @@ parser.add_argument('layers',
 										help="Specify nn hidden layer architecture. Provide space separated integers to specify the number of neurons in heach hidden layer.",
 										nargs='*',
 										type=int)
+parser.add_argument('-s', '--steps', type=int, help="Specify number of training iterations.", default=4000)
 
 args = parser.parse_args()
 
@@ -26,7 +27,7 @@ logging.info('Training neural network with architecture ' + ', '.join(map(str, l
 
 start_time = time.time()
 
-train.train(layers, dataset)
+train.train(layers, dataset, num_steps=args.steps)
 
 # X = loadData.loadWav('./test_data/435.wav')
 # print('wav loaded')

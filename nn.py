@@ -9,8 +9,7 @@ class Layer:
 		self.w = w
 		self.b = b
 
-def randInitializeWeights(numInputs, numOutputs):
-	epsilon = 0.12
+def randInitializeWeights(numInputs, numOutputs, epsilon=0.12):
 	return tf.random_uniform([numOutputs, numInputs], minval=-epsilon, maxval=epsilon, dtype=tf.float32)
 
 def _construct_layers(layer_defs):
