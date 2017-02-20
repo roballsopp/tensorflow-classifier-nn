@@ -1,8 +1,20 @@
 import tensorflow as tf
-import numpy as np
-import nn
 import time
 import logging
+from argparse import ArgumentParser
+import nn
+import loadData
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
+
+parser = ArgumentParser()
+
+parser.add_argument('input_pattern', help="Specify input file(s) using glob pattern")
+parser.add_argument('layers',
+										help="Specify nn hidden layer architecture. Provide space separated integers to specify the number of neurons in heach hidden layer.",
+										nargs='*',
+										type=int)
+parser.add_argument('-s', '--steps', type=int, help="Specify number of training iterations.", default=4000)
 
 def every_n_steps(n, step, callback):
 	if (step > 0) and ((step + 1) % n == 0):
@@ -79,3 +91,14 @@ def train(layers, dataset, num_steps=4000):
 				every_n_steps(100, step, save_model)
 
 			save_model()
+
+args = parser.parse_args()
+
+logging.info('Loading files matching ' + args.input_pattern + '...')
+dataset = loadData.load(args.input_pattern)
+logging.info('Files loaded successfully. Loaded ' + str(dataset.num_examples) + ' training examples')
+
+layers = [dataset.num_features] + args.layers + [dataset.num_labels]
+logging.info('Training neural network with architecture ' + ', '.join(map(str, layers)) + '...')
+
+train(layers, dataset, num_steps=args.steps)
