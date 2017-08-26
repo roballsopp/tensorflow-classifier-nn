@@ -3,6 +3,13 @@ import wave
 import struct
 import glob
 
+FORMATS = {
+	1: np.float32,
+	2: np.int32,
+	3: np.int16,
+	4: np.int8
+}
+
 class DataSet:
 	def __init__(self, data, label_offset=0):
 		self.data = data
@@ -40,12 +47,18 @@ class DataSet:
 			if header_id != b'NDAT':
 				raise ValueError('Header id incorrect', header_id)
 
-			num_features, num_labels, num_examples, label_offset = struct.unpack('<IIIi', file.read(16))
+			num_features, feature_format, num_labels, label_format, num_examples, label_offset = struct.unpack('<IHIHIi', file.read(20))
 
-			example_dt = np.dtype(np.float32)
-			example_dt = example_dt.newbyteorder('<')
+			feature_type = FORMATS[feature_format]
+			label_type = FORMATS[label_format]
 
-			data_dt = np.dtype([('X', example_dt, (num_features,)), ('y', np.uint8, (num_labels,))])
+			feature_dt = np.dtype(feature_type)
+			feature_dt = feature_dt.newbyteorder('<')
+
+			label_dt = np.dtype(label_type)
+			label_dt = label_dt.newbyteorder('<')
+
+			data_dt = np.dtype([('X', feature_dt, (num_features,)), ('y', label_dt, (num_labels,))])
 
 			data = np.fromfile(file, dtype=data_dt, count=num_examples)
 
