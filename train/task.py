@@ -1,6 +1,7 @@
 import tensorflow as tf
 import time
 import logging
+import os
 from argparse import ArgumentParser
 import nn
 import loadData
@@ -11,7 +12,7 @@ parser = ArgumentParser()
 
 parser.add_argument('input_pattern', help="Specify input file(s) using glob pattern")
 parser.add_argument('layers',
-										help="Specify nn hidden layer architecture. Provide space separated integers to specify the number of neurons in heach hidden layer.",
+										help="Specify nn hidden layer architecture. Provide space separated integers to specify the number of neurons in each hidden layer.",
 										nargs='*',
 										type=int)
 parser.add_argument('-s', '--steps', type=int, help="Specify number of training iterations.", default=4000)
@@ -21,9 +22,9 @@ def every_n_steps(n, step, callback):
 		callback(step)
 
 class TrainerGraph:
-	def __init__(self, net, x_shape, y_shape):
-		self.x_init = tf.placeholder(dtype=tf.float32, shape=x_shape)
-		self.y_init = tf.placeholder(dtype=tf.uint8, shape=y_shape)
+	def __init__(self, net, x_shape, y_shape, x_type=tf.float32, y_type=tf.float32):
+		self.x_init = tf.placeholder(dtype=x_type, shape=x_shape)
+		self.y_init = tf.placeholder(dtype=y_type, shape=y_shape)
 
 		self.x = tf.Variable(self.x_init, trainable=False)
 		self.y = tf.Variable(self.y_init, trainable=False)
@@ -43,7 +44,7 @@ class TrainerGraph:
 
 
 def train(layers, dataset, num_steps=4000):
-	run_name = '_'.join(map(str, layers)) + ' - ' + time.strftime('%Y-%m-%w_%H-%M-%S')
+	run_name = '_'.join(map(str, layers)) + ' - ' + time.strftime('%Y-%m-%d_%H-%M-%S')
 	dataset.shuffle()
 
 	x_train = dataset.features[:-1000]
@@ -55,8 +56,8 @@ def train(layers, dataset, num_steps=4000):
 	with graph.as_default():
 		net = nn.FullyConnected(layers)
 
-		graph_train = TrainerGraph(net, x_train.shape, y_train.shape)
-		graph_val = TrainerGraph(net, x_val.shape, y_val.shape)
+		graph_train = TrainerGraph(net, x_train.shape, y_train.shape, x_train.dtype, y_train.dtype)
+		graph_val = TrainerGraph(net, x_val.shape, y_val.shape, x_val.dtype, y_val.dtype)
 
 		optimize = tf.train.AdamOptimizer().minimize(graph_train.cost)
 
@@ -67,7 +68,8 @@ def train(layers, dataset, num_steps=4000):
 
 		with tf.Session() as sess:
 			session_saver = net.get_saver()
-			summary_writer = tf.summary.FileWriter('./tmp/' + run_name)
+			summary_writer = tf.summary.FileWriter(os.path.join('./tmp', run_name))
+
 			sess.run(init, feed_dict={
 				graph_train.x_init: x_train,
 				graph_train.y_init: y_train,
@@ -81,16 +83,18 @@ def train(layers, dataset, num_steps=4000):
 				summary_writer.add_summary(val_results, step)
 				logging.info('Step ' + str(step + 1) + ' of ' + str(num_steps))
 
-			def save_model(step=None):
-				save_path = session_saver.save(sess, './tmp/' + run_name + '/model', global_step=step)
+			def save_checkpoint(step=None, name='checkpoint', write_meta_graph=False):
+				save_path = os.path.join('./tmp', run_name, name)
+				save_path = session_saver.save(sess, save_path, global_step=step, write_meta_graph=write_meta_graph)
 				logging.info("Model saved at: %s" % save_path)
 
 			for step in range(num_steps):
 				sess.run(optimize)
 				every_n_steps(10, step, add_summary)
-				every_n_steps(100, step, save_model)
+				every_n_steps(100, step, save_checkpoint)
 
-			save_model()
+			save_checkpoint(name='export', write_meta_graph=True)
+
 
 args = parser.parse_args()
 
