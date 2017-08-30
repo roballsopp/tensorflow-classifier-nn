@@ -70,7 +70,7 @@ def train(layers, dataset, num_steps=4000, restore_variables_from="", step_start
 
 		with tf.Session() as sess:
 			session_saver = net.get_saver()
-			summary_writer = tf.summary.FileWriter(os.path.join('./tmp', run_name))
+			summary_writer = tf.summary.FileWriter(os.path.join('./tmp', run_name), graph=sess.graph)
 
 			sess.run(init, feed_dict={
 				graph_train.x_init: x_train,
