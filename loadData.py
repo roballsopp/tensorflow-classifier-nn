@@ -1,4 +1,5 @@
 import numpy as np
+import tensorflow as tf
 import wave
 import struct
 import glob
@@ -10,91 +11,24 @@ FORMATS = {
 	4: np.int8
 }
 
-class DataSet:
-	def __init__(self, data, label_offset=0):
-		self.data = data
-		self.label_offset = label_offset
-
-	@property
-	def features(self):
-		return self.data['X']
-
-	@property
-	def labels(self):
-		return self.data['y']
-
-	@property
-	def num_features(self):
-		return self.data['X'].shape[1]
-
-	@property
-	def num_labels(self):
-		return self.data['y'].shape[1]
-
-	@property
-	def num_examples(self):
-		return self.data.shape[0]
-
-	def shuffle(self):
-		np.random.shuffle(self.data)
-		return self
-
-	@staticmethod
-	def from_file(file_path):
-		with open(file_path, 'rb') as file:
-			header_id = file.read(4)
-
-			if header_id != b'NDAT':
-				raise ValueError('Header id incorrect', header_id)
-
-			num_features, feature_format, num_labels, label_format, num_examples, label_offset = struct.unpack('<IHIHIi', file.read(20))
-
-			feature_type = FORMATS[feature_format]
-			label_type = FORMATS[label_format]
-
-			feature_dt = np.dtype(feature_type)
-			feature_dt = feature_dt.newbyteorder('<')
-
-			label_dt = np.dtype(label_type)
-			label_dt = label_dt.newbyteorder('<')
-
-			data_dt = np.dtype([('X', feature_dt, (num_features,)), ('y', label_dt, (num_labels,))])
-
-			data = np.fromfile(file, dtype=data_dt, count=num_examples)
-
-			return DataSet(data, label_offset)
-
-	@staticmethod
-	def merge(datasets):
-		if len(datasets) < 2:
-			raise ValueError('You must provide at least two datasets to merge')
-
-		validation_dataset = datasets[0]
-		data_arrays = []
-
-		for dataset in datasets:
-			if dataset.label_offset != validation_dataset.label_offset:
-				raise ValueError('Datasets must have the same label offset to be merged')
-
-			data_arrays.append(dataset.data)
-
-		return DataSet(np.concatenate(data_arrays), validation_dataset.label_offset)
-
 def load(glob_pattern):
 	filenames = glob.glob(glob_pattern, recursive=True)
 
 	if len(filenames) == 1:
-		return DataSet.from_file(filenames[0])
+		return from_file(filenames[0])
 
 	if len(filenames) == 0:
 		raise ValueError('No files found')
 
-	datasets = []
+	dataset = None
 
 	for filename in filenames:
-		datasets.append(DataSet.from_file(filename))
+		if dataset is None:
+			dataset = from_file(filename)
+		else:
+			dataset = dataset.concatenate(from_file(filename))
 
-	return DataSet.merge(datasets)
+	return dataset
 
 
 def loadWav(filepath):
@@ -139,3 +73,37 @@ def saveWav(filepath, data):
 	file.writeframesraw(data_int.data)
 
 	file.close()
+
+
+def from_file(file_path):
+	with open(file_path, 'rb') as file:
+		header_id = file.read(4)
+
+		if header_id != b'NDAT':
+			raise ValueError('Header id incorrect', header_id)
+
+		num_features, feature_format, num_labels, label_format, num_examples, label_offset = struct.unpack('<IHIHIi', file.read(20))
+
+		feature_type = FORMATS[feature_format]
+		label_type = FORMATS[label_format]
+
+		feature_bytes = feature_type(0).itemsize * num_features
+		label_bytes = label_type(0).itemsize * num_labels
+
+		total_example_bytes = feature_bytes + label_bytes
+
+		def parse_example(example_raw):
+			features_raw = tf.substr(example_raw, 0, feature_bytes)
+			labels_raw = tf.substr(example_raw, feature_bytes, label_bytes)
+
+			features = tf.decode_raw(features_raw, feature_type)
+			features.set_shape([num_features])
+
+			labels = tf.decode_raw(labels_raw, label_type)
+			labels.set_shape([num_labels])
+
+			return features, labels
+
+		dataset = tf.contrib.data.FixedLengthRecordDataset([file_path], total_example_bytes, header_bytes=24)
+		dataset = dataset.map(parse_example)
+		return dataset

@@ -24,12 +24,9 @@ def every_n_steps(n, step, callback):
 		callback(step)
 
 class TrainerGraph:
-	def __init__(self, net, x_shape, y_shape, x_type=tf.float32, y_type=tf.float32):
-		self.x_init = tf.placeholder(dtype=x_type, shape=x_shape)
-		self.y_init = tf.placeholder(dtype=y_type, shape=y_shape)
-
-		self.x = tf.Variable(self.x_init, trainable=False)
-		self.y = tf.Variable(self.y_init, trainable=False)
+	def __init__(self, net, x, y):
+		self.x = x
+		self.y = y
 
 		self.hyp = net.forward_prop(self.x)
 		self.cost = nn.cross_entropy(self.hyp, self.y)
@@ -45,21 +42,28 @@ class TrainerGraph:
 		return tf.summary.merge(summaries)
 
 
-def train(layers, dataset, num_steps=4000, restore_variables_from="", step_start=0):
+def train(layers, dataset, num_steps=4000, restore_variables_from=None, step_start=0):
 	run_name = '_'.join(map(str, layers)) + ' - ' + time.strftime('%Y-%m-%d_%H-%M-%S')
-	dataset.shuffle()
-
-	x_train = dataset.features[:-1000]
-	y_train = dataset.labels[:-1000]
-	x_val = dataset.features[-1000:]
-	y_val = dataset.labels[-1000:]
 
 	graph = tf.Graph()
 	with graph.as_default():
+		dataset = dataset.shuffle(1000)
+
+		val_dataset = dataset.take(1000)
+		val_dataset = val_dataset.repeat()
+		val_dataset = val_dataset.batch(1000)
+
+		train_dataset = dataset.skip(1000)
+		train_dataset = train_dataset.repeat()
+		train_dataset = train_dataset.batch(1000)
+
+		x_train, y_train = train_dataset.make_one_shot_iterator().get_next()
+		x_val, y_val = val_dataset.make_one_shot_iterator().get_next()
+
 		net = nn.FullyConnected(layers)
 
-		graph_train = TrainerGraph(net, x_train.shape, y_train.shape, x_train.dtype, y_train.dtype)
-		graph_val = TrainerGraph(net, x_val.shape, y_val.shape, x_val.dtype, y_val.dtype)
+		graph_train = TrainerGraph(net, x_train, y_train)
+		graph_val = TrainerGraph(net, x_val, y_val)
 
 		optimize = tf.train.AdamOptimizer().minimize(graph_train.cost)
 
@@ -72,15 +76,10 @@ def train(layers, dataset, num_steps=4000, restore_variables_from="", step_start
 			session_saver = net.get_saver()
 			summary_writer = tf.summary.FileWriter(os.path.join('./tmp', run_name), graph=sess.graph)
 
-			sess.run(init, feed_dict={
-				graph_train.x_init: x_train,
-				graph_train.y_init: y_train,
-				graph_val.x_init: x_val,
-				graph_val.y_init: y_val
-			})
+			sess.run(init)
 
 			# must come after sess.run(init) or the restored vars will be wiped out
-			if restore_variables_from != "":
+			if restore_variables_from:
 				session_saver.restore(sess, restore_variables_from)
 
 			def add_summary(step):
@@ -106,9 +105,14 @@ args = parser.parse_args()
 
 logging.info('Loading files matching ' + args.input_pattern + '...')
 dataset = loadData.load(args.input_pattern)
-logging.info('Files loaded successfully. Loaded ' + str(dataset.num_examples) + ' training examples')
+logging.info('Files loaded successfully.')
 
-layers = [dataset.num_features] + args.layers + [dataset.num_labels]
+features_shape, labels_shape = dataset.output_shapes
+
+num_features = features_shape.as_list()[0]
+num_labels = labels_shape.as_list()[0]
+
+layers = [num_features] + args.layers + [num_labels]
 logging.info('Training neural network with architecture ' + ', '.join(map(str, layers)) + '...')
 
 train(layers, dataset, num_steps=args.num_iters, restore_variables_from=args.from_checkpoint, step_start=args.start_iter)
