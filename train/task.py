@@ -15,7 +15,7 @@ parser.add_argument('layers',
 										help="Specify nn hidden layer architecture. Provide space separated integers to specify the number of neurons in each hidden layer.",
 										nargs='*',
 										type=int)
-parser.add_argument('-n', '--num-iters', type=int, help="Specify number of training iterations.", default=4000)
+parser.add_argument('-n', '--num-iters', type=int, help="Specify number of training iterations.", default=100000)
 parser.add_argument('-s', '--start-iter', type=int, help="Specify the training iteration to start on.", default=0)
 parser.add_argument('-c', '--from-checkpoint', type=str, help="Specify a checkpoint to restore from.")
 
@@ -42,7 +42,7 @@ class TrainerGraph:
 		return tf.summary.merge(summaries)
 
 
-def train(layers, dataset, num_steps=4000, restore_variables_from=None, step_start=0):
+def train(layers, dataset, num_steps=100000, restore_variables_from=None, step_start=0):
 	run_name = '_'.join(map(str, layers)) + ' - ' + time.strftime('%Y-%m-%d_%H-%M-%S')
 
 	graph = tf.Graph()
@@ -95,8 +95,8 @@ def train(layers, dataset, num_steps=4000, restore_variables_from=None, step_sta
 
 			for step in range(step_start, num_steps):
 				sess.run(optimize)
-				every_n_steps(10, step, add_summary)
-				every_n_steps(100, step, save_checkpoint)
+				every_n_steps(100, step, add_summary)
+				every_n_steps(1000, step, save_checkpoint)
 
 			save_checkpoint(name='export', write_meta_graph=True)
 
