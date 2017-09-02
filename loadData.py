@@ -11,23 +11,60 @@ FORMATS = {
 	4: np.int8
 }
 
+class DataHeader:
+	def __init__(self, num_features, feature_format, num_labels, label_format, num_examples, label_offset):
+		self._num_features = num_features
+		self._feature_type = FORMATS[feature_format]
+		self._feature_bytes = self._feature_type(0).itemsize * num_features
+		self._num_labels = num_labels
+		self._label_type = FORMATS[label_format]
+		self._label_bytes = self._label_type(0).itemsize * num_labels
+		self._num_examples = num_examples
+		self._example_bytes = self._feature_bytes + self._label_bytes
+		self._label_offset = label_offset
+
+	@property
+	def example_bytes(self):
+		return self._example_bytes
+
+	def parse_example(self, example_raw):
+		features_raw = tf.substr(example_raw, 0, self._feature_bytes)
+		labels_raw = tf.substr(example_raw, self._feature_bytes, self._label_bytes)
+
+		features = tf.decode_raw(features_raw, self._feature_type)
+		features.set_shape([self._num_features])
+
+		labels = tf.decode_raw(labels_raw, self._label_type)
+		labels.set_shape([self._num_labels])
+
+		return features, labels
+
+	@staticmethod
+	def from_file(file_path):
+		with open(file_path, 'rb') as file:
+			header_id = file.read(4)
+
+			if header_id != b'NDAT':
+				raise ValueError('Header id incorrect', header_id)
+
+			num_features, feature_format, num_labels, label_format, num_examples, label_offset = struct.unpack('<IHIHIi', file.read(20))
+
+			return DataHeader(num_features, feature_format, num_labels, label_format, num_examples, label_offset)
+
 def load(glob_pattern):
 	filenames = glob.glob(glob_pattern, recursive=True)
 
-	if len(filenames) == 1:
-		return from_file(filenames[0])
+	num_files = len(filenames)
 
-	if len(filenames) == 0:
+	if num_files == 0:
 		raise ValueError('No files found')
 
-	dataset = None
+	print('Loaded ' + str(num_files) + ' files.')
 
-	for filename in filenames:
-		if dataset is None:
-			dataset = from_file(filename)
-		else:
-			dataset = dataset.concatenate(from_file(filename))
+	header = DataHeader.from_file(filenames[0])
 
+	dataset = tf.contrib.data.FixedLengthRecordDataset(filenames, header.example_bytes, header_bytes=24)
+	dataset = dataset.map(header.parse_example)
 	return dataset
 
 
@@ -73,37 +110,3 @@ def saveWav(filepath, data):
 	file.writeframesraw(data_int.data)
 
 	file.close()
-
-
-def from_file(file_path):
-	with open(file_path, 'rb') as file:
-		header_id = file.read(4)
-
-		if header_id != b'NDAT':
-			raise ValueError('Header id incorrect', header_id)
-
-		num_features, feature_format, num_labels, label_format, num_examples, label_offset = struct.unpack('<IHIHIi', file.read(20))
-
-		feature_type = FORMATS[feature_format]
-		label_type = FORMATS[label_format]
-
-		feature_bytes = feature_type(0).itemsize * num_features
-		label_bytes = label_type(0).itemsize * num_labels
-
-		total_example_bytes = feature_bytes + label_bytes
-
-		def parse_example(example_raw):
-			features_raw = tf.substr(example_raw, 0, feature_bytes)
-			labels_raw = tf.substr(example_raw, feature_bytes, label_bytes)
-
-			features = tf.decode_raw(features_raw, feature_type)
-			features.set_shape([num_features])
-
-			labels = tf.decode_raw(labels_raw, label_type)
-			labels.set_shape([num_labels])
-
-			return features, labels
-
-		dataset = tf.contrib.data.FixedLengthRecordDataset([file_path], total_example_bytes, header_bytes=24)
-		dataset = dataset.map(parse_example)
-		return dataset
