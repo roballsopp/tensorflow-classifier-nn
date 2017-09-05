@@ -51,20 +51,16 @@ class DataHeader:
 
 			return DataHeader(num_features, feature_format, num_labels, label_format, num_examples, label_offset)
 
-def load(glob_pattern):
-	filenames = glob.glob(glob_pattern, recursive=True)
-
+def load(filenames):
 	num_files = len(filenames)
 
 	if num_files == 0:
 		raise ValueError('No files found')
 
-	print('Loaded ' + str(num_files) + ' files.')
-
 	header = DataHeader.from_file(filenames[0])
 
 	dataset = tf.contrib.data.FixedLengthRecordDataset(filenames, header.example_bytes, header_bytes=24)
-	dataset = dataset.map(header.parse_example)
+	dataset = dataset.map(header.parse_example, num_threads=8, output_buffer_size=50000)
 	return dataset
 
 
