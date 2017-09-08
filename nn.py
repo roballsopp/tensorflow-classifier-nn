@@ -1,42 +1,4 @@
 import tensorflow as tf
-import numpy as np
-
-ALMOST_ZERO = np.nextafter(np.float32(0), np.float32(1))
-ALMOST_ONE = np.nextafter(np.float32(1), np.float32(0))
-
-class Layer:
-	def __init__(self, w, b):
-		self.w = w
-		self.b = b
-
-def randInitializeWeights(numInputs, numOutputs, epsilon=0.12):
-	return tf.random_uniform([numOutputs, numInputs], minval=-epsilon, maxval=epsilon, dtype=tf.float32)
-
-def _construct_layers(layer_defs):
-	layers = []
-
-	for l in range(len(layer_defs) - 1):
-		num_inputs = layer_defs[l]
-		num_outputs = layer_defs[l + 1]
-
-		theta_name = 'Theta' + str(l)
-		bias_name = 'bias' + str(l)
-
-		theta = tf.Variable(randInitializeWeights(num_inputs, num_outputs), name=theta_name)
-		bias = tf.Variable(randInitializeWeights(num_outputs, 1), name=bias_name)
-
-		layers.append(Layer(theta, bias))
-
-	return tuple(layers)
-
-def cross_entropy(hypothesis, targets):
-	targets_float = tf.cast(targets, tf.float32)
-	m = tf.to_float(tf.shape(targets)[0])
-	# clipping prevents underflow errors (log(0))
-	y1 = targets_float * -tf.log(tf.clip_by_value(hypothesis, ALMOST_ZERO, 1))
-	y0 = (1 - targets_float) * tf.log(1 - tf.clip_by_value(hypothesis, 0, ALMOST_ONE))
-
-	return tf.reduce_sum((y1 - y0) / m)
 
 def evaluate(y_hyp, y_val):
 	correct_labels = tf.cast(y_val, tf.bool)
@@ -79,22 +41,3 @@ def evaluate(y_hyp, y_val):
 		'num_true_neg': num_true_neg,
 		'num_false_neg': num_false_neg
 	}
-
-class FullyConnected:
-	def __init__(self, layer_defs):
-		self.layers = _construct_layers(layer_defs)
-
-	def forward_prop(self, a):
-		for layer in self.layers:
-			z = tf.matmul(a, tf.transpose(layer.w)) + layer.b
-			a = tf.sigmoid(z)
-		return a
-
-	def get_saver(self):
-		variables_to_save = []
-
-		for layer in self.layers:
-			variables_to_save.append(layer.w)
-			variables_to_save.append(layer.b)
-
-		return tf.train.Saver(variables_to_save)

@@ -25,12 +25,16 @@ def every_n_steps(n, step, callback):
 		callback(step)
 
 class TrainerGraph:
-	def __init__(self, net, x, y):
-		self.x = x
-		self.y = y
+	def __init__(self, hidden_layers, inputs, labels, reuse=None):
+		self.y = labels
 
-		self.hyp = net.forward_prop(self.x)
-		self.cost = nn.cross_entropy(self.hyp, self.y)
+		for i, layer in enumerate(hidden_layers):
+			inputs = tf.layers.dense(inputs=inputs, units=layer, activation=tf.nn.sigmoid, reuse=reuse, name='hidden_layer_' + str(i))
+
+		outputs = tf.layers.dense(inputs=inputs, units=labels.shape[1], reuse=reuse, name='output_layer')
+
+		self.hyp = tf.nn.sigmoid(outputs)
+		self.cost = tf.losses.sigmoid_cross_entropy(labels, logits=outputs, reduction=tf.losses.Reduction.SUM)
 
 	def evaluate(self, summary_namespace):
 		metrics = nn.evaluate(self.hyp, self.y)
@@ -43,7 +47,7 @@ class TrainerGraph:
 		return tf.summary.merge(summaries)
 
 
-def train(layers, train_dataset, val_dataset, num_steps=100000, restore_variables_from=None, step_start=0):
+def train(hidden_layers, train_dataset, val_dataset, num_steps=100000, restore_variables_from=None, step_start=0):
 	run_name = '_'.join(map(str, layers)) + ' - ' + time.strftime('%Y-%m-%d_%H-%M-%S')
 
 	val_dataset = val_dataset.cache().repeat().batch(1000)
@@ -55,10 +59,8 @@ def train(layers, train_dataset, val_dataset, num_steps=100000, restore_variable
 	x_train, y_train = iter_data_train.get_next()
 	x_val, y_val = iter_data_val.get_next()
 
-	net = nn.FullyConnected(layers)
-
-	graph_train = TrainerGraph(net, x_train, y_train)
-	graph_val = TrainerGraph(net, x_val, y_val)
+	graph_train = TrainerGraph(hidden_layers, x_train, y_train)
+	graph_val = TrainerGraph(hidden_layers, x_val, y_val, reuse=True)
 
 	optimize = tf.train.AdamOptimizer().minimize(graph_train.cost)
 
@@ -68,7 +70,7 @@ def train(layers, train_dataset, val_dataset, num_steps=100000, restore_variable
 	init = tf.global_variables_initializer()
 
 	with tf.Session() as sess:
-		session_saver = net.get_saver()
+		session_saver = tf.train.Saver()
 		summary_writer = tf.summary.FileWriter(os.path.join('./tmp', run_name), graph=sess.graph)
 
 		sess.run([init, iter_data_train.initializer, iter_data_val.initializer])
@@ -115,4 +117,4 @@ num_labels = labels_shape.as_list()[0]
 layers = [num_features] + args.layers + [num_labels]
 logging.info('Training neural network with architecture ' + ', '.join(map(str, layers)) + '...')
 
-train(layers, train_dataset, val_dataset, num_steps=args.num_iters, restore_variables_from=args.from_checkpoint, step_start=args.start_iter)
+train(args.layers, train_dataset, val_dataset, num_steps=args.num_iters, restore_variables_from=args.from_checkpoint, step_start=args.start_iter)
