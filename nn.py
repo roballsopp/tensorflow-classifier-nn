@@ -41,3 +41,16 @@ def evaluate(y_hyp, y_val):
 		'num_true_neg': num_true_neg,
 		'num_false_neg': num_false_neg
 	}
+
+class Net:
+	def __init__(self, inputs, hidden_layers, output_size, reuse=None):
+		for i, num_outs in enumerate(hidden_layers):
+			inputs = tf.layers.dense(inputs=inputs, units=num_outs, activation=tf.nn.sigmoid, reuse=reuse, name='hidden_layer_' + str(i))
+
+		self._raw_outputs = tf.layers.dense(inputs=inputs, units=output_size, reuse=reuse, name='output_layer')
+
+	def forward_prop(self):
+		return tf.nn.sigmoid(self._raw_outputs)
+
+	def loss(self, correct_labels):
+		return tf.losses.sigmoid_cross_entropy(correct_labels, logits=self._raw_outputs, reduction=tf.losses.Reduction.SUM)

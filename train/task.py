@@ -28,13 +28,10 @@ class TrainerGraph:
 	def __init__(self, hidden_layers, inputs, labels, reuse=None):
 		self.y = labels
 
-		for i, layer in enumerate(hidden_layers):
-			inputs = tf.layers.dense(inputs=inputs, units=layer, activation=tf.nn.sigmoid, reuse=reuse, name='hidden_layer_' + str(i))
+		net = nn.Net(inputs, hidden_layers, labels.shape[1], reuse)
 
-		outputs = tf.layers.dense(inputs=inputs, units=labels.shape[1], reuse=reuse, name='output_layer')
-
-		self.hyp = tf.nn.sigmoid(outputs)
-		self.cost = tf.losses.sigmoid_cross_entropy(labels, logits=outputs, reduction=tf.losses.Reduction.SUM)
+		self.hyp = net.forward_prop()
+		self.cost = net.loss(labels)
 
 	def evaluate(self, summary_namespace):
 		metrics = nn.evaluate(self.hyp, self.y)
