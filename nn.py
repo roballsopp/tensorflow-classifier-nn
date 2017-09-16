@@ -43,11 +43,37 @@ def evaluate(y_hyp, y_val):
 	}
 
 class Net:
-	def __init__(self, inputs, hidden_layers, output_size, reuse=None):
-		for i, num_outs in enumerate(hidden_layers):
-			inputs = tf.layers.dense(inputs=inputs, units=num_outs, activation=tf.nn.sigmoid, reuse=reuse, name='hidden_layer_' + str(i))
+	def __init__(self, inputs, reuse=None):
+		num_filters = 10
+		filter_size = 25  # if input sample rate is 11025, 25 samples is ~2ms
 
-		self._raw_outputs = tf.layers.dense(inputs=inputs, units=output_size, reuse=reuse, name='output_layer')
+		layer1_out = tf.layers.conv1d(
+			inputs,
+			num_filters,
+			filter_size,
+			strides=1,
+			padding='same',
+			activation=tf.nn.relu,
+			name='hidden_conv_layer',
+			reuse=reuse
+		)
+
+		layer1_shape = tf.shape(layer1_out)
+
+		layer2_input = tf.reshape(layer1_out, (-1, layer1_shape[1] * layer1_shape[2], 1))
+
+		final_filter_size = num_filters * 150  # * 150 means 150 samples worth of audio will be considered to predict this sample
+		strides = num_filters * 1  # * 10 means we will jump 10 samples for every prediction, reducing our output size by a factor of 10
+
+		self._raw_outputs = tf.squeeze(tf.layers.conv1d(
+			layer2_input,
+			1,
+			final_filter_size,
+			strides=strides,
+			padding='same',
+			name='output_layer',
+			reuse=reuse
+		))
 
 	def forward_prop(self):
 		return tf.nn.sigmoid(self._raw_outputs)

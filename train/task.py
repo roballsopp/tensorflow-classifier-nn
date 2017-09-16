@@ -25,10 +25,10 @@ def every_n_steps(n, step, callback):
 		callback(step)
 
 class TrainerGraph:
-	def __init__(self, hidden_layers, inputs, labels, reuse=None):
+	def __init__(self, inputs, labels, reuse=None):
 		self.y = labels
 
-		net = nn.Net(inputs, hidden_layers, labels.shape[1], reuse)
+		net = nn.Net(inputs, reuse)
 
 		self.hyp = net.forward_prop()
 		self.cost = net.loss(labels)
@@ -56,8 +56,8 @@ def train(hidden_layers, train_dataset, val_dataset, num_steps=100000, restore_v
 	x_train, y_train = iter_data_train.get_next()
 	x_val, y_val = iter_data_val.get_next()
 
-	graph_train = TrainerGraph(hidden_layers, x_train, y_train)
-	graph_val = TrainerGraph(hidden_layers, x_val, y_val, reuse=True)
+	graph_train = TrainerGraph(x_train, y_train)
+	graph_val = TrainerGraph(x_val, y_val, reuse=True)
 
 	optimize = tf.train.AdamOptimizer().minimize(graph_train.cost)
 
