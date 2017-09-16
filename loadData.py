@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 import wave
 import struct
-import glob
+import random
 
 FORMATS = {
 	1: np.float32,
@@ -52,6 +52,7 @@ class DataHeader:
 			return DataHeader(num_features, feature_format, num_labels, label_format, num_examples, label_offset)
 
 def load(filenames):
+	random.shuffle(filenames)
 	num_files = len(filenames)
 
 	if num_files == 0:
