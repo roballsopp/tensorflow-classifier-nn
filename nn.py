@@ -53,4 +53,5 @@ class Net:
 		return tf.nn.sigmoid(self._raw_outputs)
 
 	def loss(self, correct_labels):
-		return tf.losses.sigmoid_cross_entropy(correct_labels, logits=self._raw_outputs, reduction=tf.losses.Reduction.SUM)
+		batch_size = tf.cast(tf.shape(correct_labels)[0], tf.float32)
+		return tf.losses.sigmoid_cross_entropy(correct_labels, logits=self._raw_outputs, reduction=tf.losses.Reduction.SUM) / batch_size
