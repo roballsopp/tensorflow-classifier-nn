@@ -44,36 +44,43 @@ def evaluate(y_hyp, y_val):
 
 class Net:
 	def __init__(self, inputs, reuse=None):
-		num_filters = 10
-		filter_size = 25  # if input sample rate is 11025, 25 samples is ~2ms
-
 		layer1_out = tf.layers.conv1d(
 			inputs,
-			num_filters,
-			filter_size,
+			filters=20,
+			kernel_size=100,  # if input sample rate is 11025, 25 samples is ~2ms
 			strides=1,
 			padding='same',
 			activation=tf.nn.relu,
-			name='hidden_conv_layer',
+			name='hidden_layer_1',
 			reuse=reuse
 		)
 
-		layer1_shape = tf.shape(layer1_out)
+		pool1_out = tf.layers.max_pooling1d(layer1_out, 50, 1, padding='same', name='pooling_layer_1')  # pools the highest filter values over the next 50 samples
 
-		layer2_input = tf.reshape(layer1_out, (-1, layer1_shape[1] * layer1_shape[2], 1))
+		layer2_out = tf.layers.conv1d(
+			pool1_out,
+			filters=5,
+			kernel_size=50,
+			strides=1,
+			padding='same',
+			activation=tf.nn.relu,
+			name='hidden_layer_2',
+			reuse=reuse
+		)
 
-		final_filter_size = num_filters * 150  # * 150 means 150 samples worth of audio will be considered to predict this sample
-		strides = num_filters * 1  # * 10 means we will jump 10 samples for every prediction, reducing our output size by a factor of 10
+		pool2_out = tf.layers.max_pooling1d(layer2_out, 50, 1, padding='same', name='pooling_layer_2')
 
-		self._raw_outputs = tf.squeeze(tf.layers.conv1d(
-			layer2_input,
-			1,
-			final_filter_size,
-			strides=strides,
+		final_out = tf.layers.conv1d(
+			pool2_out,
+			filters=1,
+			kernel_size=6,  # use 6 pooled frames to determine if this is a hit or not
+			strides=1,
 			padding='same',
 			name='output_layer',
 			reuse=reuse
-		))
+		)
+
+		self._raw_outputs = tf.squeeze(final_out)
 
 	def forward_prop(self):
 		return tf.nn.sigmoid(self._raw_outputs)
