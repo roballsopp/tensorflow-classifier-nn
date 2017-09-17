@@ -85,11 +85,10 @@ class Net:
 	def forward_prop(self):
 		return tf.nn.sigmoid(self._raw_outputs)
 
-	def loss(self, correct_labels):
+	def loss(self, correct_labels, positive_weight=1600):
 		batch_size = tf.cast(tf.shape(correct_labels)[0], tf.float32)
 
-		positive_ratio = 1 / tf.reduce_mean(correct_labels)
 		negative_mask = tf.abs(correct_labels - 1)
-		weights = (correct_labels * positive_ratio) + negative_mask
+		weights = (correct_labels * positive_weight) + negative_mask
 
 		return tf.losses.sigmoid_cross_entropy(correct_labels, logits=self._raw_outputs, weights=weights, reduction=tf.losses.Reduction.SUM) / batch_size
