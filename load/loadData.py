@@ -3,6 +3,11 @@ import tensorflow as tf
 import wave
 import struct
 import random
+import os
+import uuid
+from google.cloud import storage
+
+storage_client = storage.Client(project='transient-finder-training')
 
 FORMATS = {
 	1: np.float32,
@@ -51,7 +56,22 @@ class DataHeader:
 
 			return DataHeader(num_features, feature_format, num_labels, label_format, num_examples, label_offset)
 
-def load(filenames):
+	@staticmethod
+	def from_blob(blob):
+		tmp_dir = './tmp'
+		if not os.path.isdir(tmp_dir):
+			os.mkdir(tmp_dir)
+
+		temp_file_path = os.path.join(tmp_dir, str(uuid.uuid1()))
+
+		with open(temp_file_path, 'wb') as file:
+			blob.download_to_file(file)
+
+		# TODO: cleanup the temp file to save money on gcs
+		return DataHeader.from_file(temp_file_path)
+
+
+def from_filenames(filenames):
 	random.shuffle(filenames)
 	num_files = len(filenames)
 
@@ -65,7 +85,32 @@ def load(filenames):
 	return dataset
 
 
-def loadWav(filepath):
+def from_bucket(bucket_name, prefix=None):
+	data_bucket = storage.bucket.Bucket(storage_client, bucket_name)
+
+	filenames = []
+	blobs = []
+
+	for blob in data_bucket.list_blobs(prefix=prefix):
+		if blob.name.endswith('/'):
+			continue
+
+		blobs.append(blob)
+		path = 'gs://' + data_bucket.name + '/' + blob.name
+		filenames.append(path)
+
+	num_files = len(filenames)
+
+	if num_files == 0:
+		raise ValueError('No files found')
+
+	header = DataHeader.from_blob(blobs[0])
+
+	dataset = tf.contrib.data.FixedLengthRecordDataset(filenames, header.example_bytes, header_bytes=24)
+	dataset = dataset.map(header.parse_example, num_threads=8, output_buffer_size=50000)
+	return dataset
+
+def load_wav(filepath):
 	print('Loading wav', filepath)
 	file = wave.open(filepath, mode='rb')
 
@@ -94,7 +139,7 @@ def loadWav(filepath):
 
 	return np.frombuffer(fit_to_4_bytes.data, dtype=dt) / (2 ** 31)
 
-def saveWav(filepath, data):
+def save_wav(filepath, data):
 	byte_depth = 2
 	float_to_int = 2 ** ((byte_depth * 8) - 1)
 	data_int = np.rint(data * float_to_int).astype(np.int16)
