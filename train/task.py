@@ -19,9 +19,13 @@ parser.add_argument('--eval-files', help="Specify evaluation data file(s) using 
 parser.add_argument('--file-bucket', help="Specify gcloud bucket to use for data files")
 parser.add_argument('--job-dir', type=str, default='./tmp')
 parser.add_argument('--job-name', type=str, default=time.strftime('%Y-%m-%d_%H-%M-%S'))
-parser.add_argument('-n', '--num-iters', type=int, help="Specify number of training iterations.", default=100000)
-parser.add_argument('-s', '--start-iter', type=int, help="Specify the training iteration to start on.", default=0)
-parser.add_argument('-c', '--from-checkpoint', type=str, help="Specify a checkpoint to restore from.")
+parser.add_argument('--num-iters', type=int, help="Specify number of training iterations.", default=100000)
+parser.add_argument('--start-iter', type=int, help="Specify the training iteration to start on.", default=0)
+parser.add_argument('--learning-rate', type=float, help="Specify the learning rate.", default=0.001)
+parser.add_argument('--train-batch-size', type=int, help="Specify the training batch size.", default=256)
+parser.add_argument('--log-device-placement', type=bool, help="Log the device eah op is placed on.", default=False)
+parser.add_argument('--from-checkpoint', type=str, help="Specify a checkpoint to restore from.")
+
 
 def every_n_steps(n, step, callback):
 	if (step > 0) and ((step + 1) % n == 0):
@@ -54,6 +58,9 @@ job_name = args.job_name
 restore_variables_from = args.from_checkpoint
 step_start = args.start_iter
 num_steps = args.num_iters
+learning_rate = args.learning_rate
+train_batch_size = args.train_batch_size
+log_device_placement = args.log_device_placement
 
 train_dataset = None
 val_dataset = None
@@ -78,7 +85,7 @@ else:
 logging.info('Building neural network...')
 
 val_dataset = val_dataset.shuffle(10000).repeat().batch(256)
-train_dataset = train_dataset.shuffle(10000).repeat().batch(256)
+train_dataset = train_dataset.shuffle(100000).repeat().batch(train_batch_size)
 
 iter_data_train = train_dataset.make_initializable_iterator()
 iter_data_val = val_dataset.make_initializable_iterator()
@@ -89,14 +96,14 @@ x_val, y_val = iter_data_val.get_next()
 graph_train = TrainerGraph(x_train, y_train)
 graph_val = TrainerGraph(x_val, y_val, reuse=True)
 
-optimize = tf.train.AdamOptimizer(learning_rate=0.001).minimize(graph_train.cost)
+optimize = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(graph_train.cost)
 
 summaries_train = graph_train.evaluate('train')
 summaries_val = graph_val.evaluate('val')
 
 init = tf.global_variables_initializer()
 
-with tf.Session() as sess:
+with tf.Session(config=tf.ConfigProto(log_device_placement=log_device_placement)) as sess:
 	session_saver = tf.train.Saver()
 	summary_writer = tf.summary.FileWriter(os.path.join(job_dir, job_name), graph=sess.graph)
 
