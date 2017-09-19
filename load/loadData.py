@@ -5,6 +5,7 @@ import struct
 import random
 import os
 import uuid
+import logging
 from google.cloud import storage
 
 storage_client = storage.Client(project='transient-finder-training')
@@ -27,6 +28,7 @@ class DataHeader:
 		self._num_examples = num_examples
 		self._example_bytes = self._feature_bytes + self._label_bytes
 		self._label_offset = label_offset
+		self._num_channels = 1
 
 	@property
 	def example_bytes(self):
@@ -37,12 +39,9 @@ class DataHeader:
 		labels_raw = tf.substr(example_raw, self._feature_bytes, self._label_bytes)
 
 		features = tf.decode_raw(features_raw, self._feature_type)
-		features.set_shape([self._num_features])
-
 		labels = tf.decode_raw(labels_raw, self._label_type)
-		labels.set_shape([self._num_labels])
 
-		return features, labels
+		return tf.reshape(features, [self._num_features, self._num_channels]), tf.reshape(labels, [self._num_labels])
 
 	@staticmethod
 	def from_file(file_path):
@@ -103,6 +102,8 @@ def from_bucket(bucket_name, prefix=None):
 
 	if num_files == 0:
 		raise ValueError('No files found')
+
+	logging.info('Found ' + str(num_files) + ' files.')
 
 	header = DataHeader.from_blob(blobs[0])
 
