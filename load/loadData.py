@@ -51,7 +51,16 @@ class DataHeader:
 			if header_id != b'NDAT':
 				raise ValueError('Header id incorrect', header_id)
 
-			num_features, feature_format, num_labels, label_format, num_examples, label_offset = struct.unpack('<IHIHIi', file.read(20))
+			num_features, feature_height, feature_format, num_labels, label_format, num_examples, label_offset = struct.unpack('<IIHIHIi', file.read(24))
+
+			logging.info('--- Data header ---')
+			logging.info('Num features: ' + str(num_features))
+			logging.info('Feature height: ' + str(feature_height))
+			logging.info('Feature format: ' + str(feature_format))
+			logging.info('Num labels: ' + str(num_labels))
+			logging.info('Label format: ' + str(label_format))
+			logging.info('Num Examples: ' + str(num_examples))
+			logging.info('Label offset: ' + str(label_offset))
 
 			return DataHeader(num_features, feature_format, num_labels, label_format, num_examples, label_offset)
 
@@ -69,6 +78,7 @@ class DataHeader:
 		# TODO: cleanup the temp file to save money on gcs
 		return DataHeader.from_file(temp_file_path)
 
+DataHeader.HEADER_SIZE = 28
 
 def from_filenames(filenames):
 	random.shuffle(filenames)
@@ -79,7 +89,7 @@ def from_filenames(filenames):
 
 	header = DataHeader.from_file(filenames[0])
 
-	dataset = tf.contrib.data.FixedLengthRecordDataset(filenames, header.example_bytes, header_bytes=24)
+	dataset = tf.contrib.data.FixedLengthRecordDataset(filenames, header.example_bytes, header_bytes=DataHeader.HEADER_SIZE)
 	dataset = dataset.map(header.parse_example, num_threads=8, output_buffer_size=50000)
 	return dataset
 
@@ -107,7 +117,7 @@ def from_bucket(bucket_name, prefix=None):
 
 	header = DataHeader.from_blob(blobs[0])
 
-	dataset = tf.contrib.data.FixedLengthRecordDataset(filenames, header.example_bytes, header_bytes=24)
+	dataset = tf.contrib.data.FixedLengthRecordDataset(filenames, header.example_bytes, header_bytes=DataHeader.HEADER_SIZE)
 	dataset = dataset.map(header.parse_example, num_threads=8, output_buffer_size=50000)
 	return dataset
 
