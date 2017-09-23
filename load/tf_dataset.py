@@ -19,13 +19,14 @@ def get_example_parser(header):
 
 
 def from_filenames(filenames):
-	random.shuffle(filenames)
 	num_files = len(filenames)
 
 	if num_files == 0:
 		raise ValueError('No files found')
 
 	header = NdatHeader.from_file(filenames[0])
+
+	random.shuffle(filenames)
 
 	dataset = tf.contrib.data.FixedLengthRecordDataset(filenames, header.example_bytes, header_bytes=NdatHeader.HEADER_SIZE)
 	dataset = dataset.map(get_example_parser(header), num_threads=8, output_buffer_size=50000)
