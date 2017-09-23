@@ -7,6 +7,7 @@ from argparse import ArgumentParser
 import tensorflow as tf
 
 import load
+from retry import RetryRunner
 from train.model import Model
 from train.eval import evaluate
 
@@ -120,7 +121,8 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=log_device_placement)
 		# summary_writer.add_summary(audio_results, step)
 		# summary_writer.add_summary(label_results, step)
 
-		train_results, val_results = sess.run([summaries_train, summaries_val])
+		runner = RetryRunner(max_retries=10, retry_interval=5.0)
+		train_results, val_results = runner.run(lambda: sess.run([summaries_train, summaries_val]), tf.errors.OutOfRangeError)
 		summary_writer.add_summary(train_results, step)
 		summary_writer.add_summary(val_results, step)
 		logging.info('Step ' + str(step + 1) + ' of ' + str(num_steps))
@@ -133,7 +135,8 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=log_device_placement)
 	logging.info('Training neural network...')
 
 	for step in range(step_start, num_steps):
-		sess.run(optimize)
+		runner = RetryRunner(max_retries=10, retry_interval=5.0)
+		runner.run(lambda: sess.run(optimize), tf.errors.OutOfRangeError)
 		every_n_steps(10, step, add_summary)
 		every_n_steps(100, step, save_checkpoint)
 
