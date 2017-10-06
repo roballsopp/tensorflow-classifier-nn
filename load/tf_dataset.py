@@ -1,9 +1,10 @@
-import tensorflow as tf
-import random
 import logging
-from load.ndat_header import NdatHeader
+import random
+
+import tensorflow as tf
 from google.cloud import storage
 
+from ndat.header import NdatHeader
 
 def get_example_parser(header):
 	def parse_example(example_raw):

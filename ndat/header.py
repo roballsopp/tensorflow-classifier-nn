@@ -4,7 +4,7 @@ import os
 import uuid
 import logging
 
-FORMATS = {
+FORMAT_TO_TYPE = {
 	1: np.float32,
 	2: np.int32,
 	3: np.int16,
@@ -28,18 +28,39 @@ class NdatHeader:
 		self.feature_width = feature_width
 		self.feature_height = feature_height
 		self.feature_channels = feature_channels
-		self.feature_type = FORMATS[feature_format]
+		self.feature_type = FORMAT_TO_TYPE[feature_format]
 		self.feature_bytes = self.feature_type(0).itemsize * feature_width
 		self.label_width = label_width
 		self.label_height = label_height
 		self.label_channels = label_channels
-		self.label_type = FORMATS[label_format]
+		self.label_type = FORMAT_TO_TYPE[label_format]
 		self.label_bytes = self.label_type(0).itemsize * label_width
 		self.num_examples = num_examples
 		self.example_bytes = self.feature_bytes + self.label_bytes
 		self.label_offset = label_offset
 
+	def to_bytes(self):
+		return struct.pack(
+			'<4sIIHHIIHHIi',
+			NdatHeader.HEADER_ID.encode(),
+			self.feature_width,
+			self.feature_height,
+			self.feature_channels,
+			NdatHeader.FMT_FLOAT,
+			self.label_width,
+			self.label_height,
+			self.label_channels,
+			NdatHeader.FMT_FLOAT,
+			self.num_examples,
+			self.label_offset,
+		)
+
 	HEADER_SIZE = 36
+	HEADER_ID = 'NDAT'
+	FMT_FLOAT = 1
+	FMT_INT32 = 2
+	FMT_INT16 = 3
+	FMT_INT8 = 4
 
 	@staticmethod
 	def from_file(file_path):
