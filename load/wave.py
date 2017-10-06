@@ -1,46 +1,61 @@
 import numpy as np
 import wave
+import logging
 
-def load_wav(filepath):
-	print('Loading wav', filepath)
-	file = wave.open(filepath, mode='rb')
+BYTE_DEPTH_TO_TYPE = {
+	1: np.int8,
+	2: np.int16
+}
 
-	sample_rate = file.getframerate()
-	byte_depth = file.getsampwidth()
-	num_channels = file.getnchannels()
-	num_samples = file.getnframes()
+class Wave:
+	def __init__(self, data, sample_rate=44100):
+		self._data = data.astype(np.float32)
+		self._sample_rate = sample_rate
 
-	print('Sample Rate:', sample_rate)
-	print('Bit Depth:', byte_depth * 8)
-	print('Channels:', num_channels)
-	print('Num Samples:', num_samples)
+	def get_chan(self, chan):
+		return self._data[chan]
 
-	buf = file.readframes(num_samples)
+	@property
+	def num_chan(self):
+		return len(self._data)
 
-	file.close()
+	@property
+	def sample_rate(self):
+		return self._sample_rate
 
-	data = np.frombuffer(buf, dtype=np.uint8)
-	data.shape = (-1, byte_depth)
+	def to_file(self, filepath, bit_depth=16):
+		float_to_int = 2 ** (bit_depth - 1)
+		data_int = np.rint(self._data[0] * float_to_int).astype(np.int16)
 
-	fit_to_4_bytes = np.zeros((num_samples, 4), dtype=np.uint8)
-	fit_to_4_bytes[:, (4 - byte_depth):] = data
+		with wave.open(filepath, 'wb') as file:
+			file.setnchannels(1)
+			file.setsampwidth(bit_depth / 8)
+			file.setframerate(self._sample_rate)
+			file.writeframesraw(data_int.data)
 
-	dt = np.dtype(np.int32)
-	dt = dt.newbyteorder('L')
+	@staticmethod
+	def from_file(filepath):
+		logging.info('Loading wav ' + filepath)
 
-	return np.frombuffer(fit_to_4_bytes.data, dtype=dt) / (2 ** 31)
+		with wave.open(filepath, mode='rb') as file:
+			sample_rate = file.getframerate()
+			byte_depth = file.getsampwidth()
+			bit_depth = byte_depth * 8
+			num_channels = file.getnchannels()
+			num_samples = file.getnframes()
 
+			logging.info('Sample Rate: ' + str(sample_rate))
+			logging.info('Bit Depth: ' + str(bit_depth))
+			logging.info('Channels: ' + str(num_channels))
+			logging.info('Num Samples: ' + str(num_samples))
 
-def save_wav(filepath, data):
-	byte_depth = 2
-	float_to_int = 2 ** ((byte_depth * 8) - 1)
-	data_int = np.rint(data * float_to_int).astype(np.int16)
+			buf = file.readframes(num_samples)
 
-	file = wave.open(filepath, 'wb')
+		dt = np.dtype(BYTE_DEPTH_TO_TYPE[byte_depth])
+		dt = dt.newbyteorder('L')
 
-	file.setnchannels(1)
-	file.setsampwidth(byte_depth)
-	file.setframerate(44100)
-	file.writeframesraw(data_int.data)
+		data = np.frombuffer(buf, dtype=dt)
+		# TODO: verify with two channels
+		data.shape = (num_channels, num_samples)
 
-	file.close()
+		return Wave(data / (2 ** (bit_depth - 1)), sample_rate)
