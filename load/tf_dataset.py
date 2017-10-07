@@ -14,7 +14,10 @@ def get_example_parser(header):
 		features = tf.decode_raw(features_raw, header.feature_type)
 		labels = tf.decode_raw(labels_raw, header.label_type)
 
-		return tf.reshape(features, [header.feature_width, header.feature_channels]), tf.reshape(labels, [header.label_width])
+		features = tf.reshape(features, [header.feature_width, header.feature_height, header.feature_channels])
+		labels = tf.reshape(labels, [header.label_width])
+
+		return features, labels
 
 	return parse_example
 

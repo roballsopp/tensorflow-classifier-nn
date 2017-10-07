@@ -1,42 +1,49 @@
 import tensorflow as tf
 
 class Model:
-	def __init__(self, inputs, reuse=None):
-		layer1_out = tf.layers.conv1d(
+	def __init__(self, inputs, reuse=None, data_format='channels_last'):
+		inputs = tf.layers.conv2d(
 			inputs,
-			filters=64,
-			kernel_size=16,  # if input sample rate is 11025, 25 samples is ~2ms
+			filters=16,
+			kernel_size=(16, 3),  # if input sample rate is 11025, 25 samples is ~2ms
+			strides=(1, 3),
 			padding='same',
+			data_format=data_format,
 			activation=tf.nn.relu,
 			name='hidden_layer_1',
 			reuse=reuse
 		)
 
-		layer2_out = tf.layers.conv1d(
-			layer1_out,
-			filters=20,
-			kernel_size=64,
+		inputs = tf.layers.conv2d(
+			inputs,
+			filters=16,
+			kernel_size=(16, 3),
+			strides=(1, 2),
 			padding='same',
+			data_format=data_format,
 			activation=tf.nn.relu,
 			name='hidden_layer_2',
 			reuse=reuse
 		)
 
-		layer3_out = tf.layers.conv1d(
-			layer2_out,
+		inputs = tf.layers.conv2d(
+			inputs,
 			filters=5,
-			kernel_size=64,
+			kernel_size=(64, 6),
+			strides=(1, 6),
 			padding='same',
+			data_format=data_format,
 			activation=tf.nn.relu,
 			name='hidden_layer_3',
 			reuse=reuse
 		)
 
-		final_out = tf.layers.conv1d(
-			layer3_out,
+		final_out = tf.layers.conv2d(
+			inputs,
 			filters=1,
-			kernel_size=100,
+			kernel_size=(100, 1),
 			padding='same',
+			data_format=data_format,
 			name='output_layer',
 			reuse=reuse
 		)
