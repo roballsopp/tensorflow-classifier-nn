@@ -28,7 +28,7 @@ marker_offset = args.offset
 late_marker_window = args.late_marker_window
 output_dir = args.output_dir
 
-generator = DataGenerator(output_dir, num_features, num_labels, desired_num_examples, marker_offset, late_marker_window)
+generator = DataGenerator(output_dir, num_features, 64, num_labels, desired_num_examples, marker_offset, late_marker_window)
 
 audio_path = os.path.join(os.getcwd(), args.audio)
 marker_path = os.path.join(os.getcwd(), args.markers)

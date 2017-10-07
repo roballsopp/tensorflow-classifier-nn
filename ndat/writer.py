@@ -12,6 +12,7 @@ class NdatWriter:
 		output_filepath = output_path_name + '.ndat'
 		num_examples_to_be_written = self._example_builder.num_examples
 		feature_width = self._example_builder.feature_width
+		feature_height = self._example_builder.feature_height
 		label_width = self._example_builder.label_width
 
 		logging.info('Writing ' + str(num_examples_to_be_written) + ' training examples of feature length ' + str(feature_width) + ', and label length ' + str(label_width) + ' to ' + str(output_filepath))
@@ -20,6 +21,7 @@ class NdatWriter:
 			feature_width=feature_width,
 			label_width=label_width,
 			num_examples=num_examples_to_be_written,
+			feature_height=feature_height,
 			feature_format=Header.FMT_FLOAT,
 			label_format=Header.FMT_FLOAT,
 			label_offset=self._example_builder.label_offset
@@ -38,4 +40,4 @@ class NdatWriter:
 				features.tofile(file)
 				labels.tofile(file)
 
-		logging.info('Write completed successfully!')
+		logging.info('Write completed successfully!\n')

@@ -10,6 +10,7 @@ class DataGenerator:
 		self,
 		output_dir,
 		num_features=1024,  # in samples
+		fft_size=64,
 		num_labels=1024,
 		desired_num_examples=5000,
 		marker_offset=0,
@@ -17,6 +18,7 @@ class DataGenerator:
 	):
 		self._output_dir = output_dir
 		self._num_features = num_features
+		self._fft_size = fft_size
 		self._num_labels = num_labels
 		self._desired_num_examples = desired_num_examples
 		self._marker_offset = marker_offset
@@ -30,7 +32,7 @@ class DataGenerator:
 		markers = Markers.from_file(marker_file_path, midi_map_file_path)
 		logging.info('Audio info - Sample Rate: ' + str(wav_file.sample_rate))
 
-		example_builder = ExampleBuilder(wav_file, markers, self._desired_num_examples, self._num_features, self._num_labels, self._marker_offset, self._late_marker_window)
+		example_builder = ExampleBuilder(wav_file, markers, self._desired_num_examples, self._num_features, self._fft_size, self._num_labels, self._marker_offset, self._late_marker_window)
 		writer = NdatWriter(example_builder)
 
 		relative_audio_dir = os.path.relpath(audio_dir, os.getcwd())

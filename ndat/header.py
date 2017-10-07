@@ -29,12 +29,12 @@ class NdatHeader:
 		self.feature_height = feature_height
 		self.feature_channels = feature_channels
 		self.feature_type = FORMAT_TO_TYPE[feature_format]
-		self.feature_bytes = self.feature_type(0).itemsize * feature_width
+		self.feature_bytes = self.feature_type(0).itemsize * feature_width * feature_height * feature_channels
 		self.label_width = label_width
 		self.label_height = label_height
 		self.label_channels = label_channels
 		self.label_type = FORMAT_TO_TYPE[label_format]
-		self.label_bytes = self.label_type(0).itemsize * label_width
+		self.label_bytes = self.label_type(0).itemsize * label_width * label_height * label_channels
 		self.num_examples = num_examples
 		self.example_bytes = self.feature_bytes + self.label_bytes
 		self.label_offset = label_offset
