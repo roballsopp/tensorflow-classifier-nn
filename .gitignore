@@ -5,3 +5,7 @@ __pycache__/
 test_data/
 deps/
 MANIFEST
+
+audio_data/
+
+*.pyc
