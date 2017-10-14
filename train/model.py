@@ -2,12 +2,14 @@ import tensorflow as tf
 
 class Model:
 	def __init__(self, inputs, reuse=None, data_format='channels_last'):
+		init_seed = 2
+
 		inputs = tf.layers.conv2d(
 			inputs,
-			filters=16,
-			kernel_size=(16, 3),  # if input sample rate is 11025, 25 samples is ~2ms
-			kernel_initializer=tf.contrib.layers.xavier_initializer(),
+			filters=32,
+			kernel_size=(32, 3),  # if input sample rate is 11025, 25 samples is ~2ms
 			strides=(1, 3),
+			kernel_initializer=tf.contrib.layers.xavier_initializer(seed=init_seed),
 			padding='same',
 			data_format=data_format,
 			activation=tf.nn.relu,
@@ -18,9 +20,9 @@ class Model:
 		inputs = tf.layers.conv2d(
 			inputs,
 			filters=16,
-			kernel_size=(16, 3),
-			kernel_initializer=tf.contrib.layers.xavier_initializer(),
-			strides=(1, 2),
+			kernel_size=(64, 3),
+			strides=(1, 3),
+			kernel_initializer=tf.contrib.layers.xavier_initializer(seed=init_seed),
 			padding='same',
 			data_format=data_format,
 			activation=tf.nn.relu,
@@ -31,9 +33,9 @@ class Model:
 		inputs = tf.layers.conv2d(
 			inputs,
 			filters=5,
-			kernel_size=(64, 6),
-			kernel_initializer=tf.contrib.layers.xavier_initializer(),
-			strides=(1, 6),
+			kernel_size=(128, 2),
+			strides=(1, 2),
+			kernel_initializer=tf.contrib.layers.xavier_initializer(seed=init_seed),
 			padding='same',
 			data_format=data_format,
 			activation=tf.nn.relu,
@@ -44,8 +46,9 @@ class Model:
 		final_out = tf.layers.conv2d(
 			inputs,
 			filters=1,
-			kernel_size=(100, 1),
-			kernel_initializer=tf.contrib.layers.xavier_initializer(),
+			kernel_size=(256, 2),
+			strides=(1, 2),
+			kernel_initializer=tf.contrib.layers.xavier_initializer(seed=init_seed),
 			padding='same',
 			data_format=data_format,
 			name='output_layer',
