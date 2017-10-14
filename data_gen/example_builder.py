@@ -62,6 +62,12 @@ class ExampleBuilder:
 
 		logging.info('Creating spectrogram...')
 		self._feature_buffer = spectrogram(buf, size=fft_size)
+
+		# normalize
+		value_range = np.ptp(self._feature_buffer)
+		value_mean = np.mean(self._feature_buffer)
+		self._feature_buffer = (self._feature_buffer - value_mean) / value_range
+
 		logging.info('Spectrogram complete!')
 
 		# we might train the autoencoder to output a different number of labels than features for performance reasons
