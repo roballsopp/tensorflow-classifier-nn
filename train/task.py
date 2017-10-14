@@ -97,7 +97,11 @@ x_val, y_val = iter_data_val.get_next()
 graph_train = TrainerGraph(x_train, y_train)
 graph_val = TrainerGraph(x_val, y_val, reuse=True)
 
-optimize = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(graph_train.cost)
+global_step = tf.Variable(step_start, trainable=False, name='global_step')
+
+learning_rate = tf.train.exponential_decay(learning_rate, global_step, decay_steps=300, decay_rate=0.5, staircase=True)
+
+optimize = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(graph_train.cost, global_step=global_step)
 
 summaries_train = graph_train.evaluate('train')
 summaries_val = graph_val.evaluate('val')
