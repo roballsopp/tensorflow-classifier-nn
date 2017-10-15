@@ -1,7 +1,6 @@
 import logging
 import numpy as np
 from data_gen.spectrogram import spectrogram
-
 from data_gen.markers import Markers
 
 def normalize(signal):
@@ -36,7 +35,7 @@ class ExampleBuilder:
 			self._feature_buffer = spec
 
 		positive_markers = markers.get_sample_pos_list(wav_file.sample_rate)
-		negative_markers = Markers.generate_negative_markers(positive_markers, min_distance_from_positive_markers=20)
+		negative_markers = Markers.generate_negative_markers(positive_markers, min_distance_from_positive_markers=25)
 		self._markers_list = positive_markers + negative_markers
 		self._markers_list.sort(key=lambda m: m['pos'])
 

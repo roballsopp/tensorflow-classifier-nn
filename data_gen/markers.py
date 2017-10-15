@@ -50,9 +50,9 @@ class Markers:
 	@staticmethod
 	def create_random_between(first_marker, second_marker, min_distance_from_markers=0):
 		distance_between_markers = second_marker['pos'] - first_marker['pos'] - (min_distance_from_markers * 2)
-		pos = (random.random() * distance_between_markers) + first_marker['pos'] if distance_between_markers > 0 else None
 
-		if pos is not None:
+		if distance_between_markers > 0:
+			pos = (random.random() * distance_between_markers) + first_marker['pos'] + min_distance_from_markers
 			return {'pos': round(pos), 'y': np.zeros(NUM_ARTICULATIONS, dtype=np.int8)}
 		else:
 			return None
