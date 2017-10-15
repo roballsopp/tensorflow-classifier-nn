@@ -4,21 +4,36 @@ from data_gen.spectrogram import spectrogram
 
 from data_gen.markers import Markers
 
+def normalize(signal):
+	range = np.ptp(signal)
+	mean = np.mean(signal)
+	return (signal - mean) / range
+
 class ExampleBuilder:
-	def __init__(self, wav_file, markers, feature_width, fft_size, marker_offset=0):
+	def __init__(self, wav_file, markers, feature_width, fft_size, marker_offset=0, with_timeseries=True):
 		self._fft_size = fft_size
 
-		buf = wav_file.get_chan(0)
+		signal = wav_file.get_chan(0)
+
+		# push signal back by length of fft to make sure the true start of events is in view when slices corresponding to markers are taken
+		padded_signal = np.pad(signal, [[fft_size, 0]], mode='constant')
 
 		logging.info('Creating spectrogram...')
-		self._feature_buffer = spectrogram(buf, size=fft_size, sample_rate=wav_file.sample_rate)
+		spec = spectrogram(padded_signal, size=fft_size, sample_rate=wav_file.sample_rate)
 
-		# normalize
-		value_range = np.ptp(self._feature_buffer)
-		value_mean = np.mean(self._feature_buffer)
-		self._feature_buffer = (self._feature_buffer - value_mean) / value_range
+		spec = normalize(spec)
 
 		logging.info('Spectrogram complete!')
+
+		if with_timeseries:
+			trimmed_len = len(padded_signal) + 1 - fft_size
+			trimmed_signal = padded_signal[:trimmed_len]
+			trimmed_signal = normalize(trimmed_signal)
+			trimmed_signal.shape = (-1, 1)
+
+			self._feature_buffer = np.concatenate([trimmed_signal, spec], axis=1)
+		else:
+			self._feature_buffer = spec
 
 		positive_markers = markers.get_sample_pos_list(wav_file.sample_rate)
 		negative_markers = Markers.generate_negative_markers(positive_markers, min_distance_from_positive_markers=20)
@@ -27,7 +42,7 @@ class ExampleBuilder:
 
 		# number of samples to use for each training example
 		self._feature_width = feature_width
-		self._feature_height = int((fft_size / 2) + 1)
+		self._feature_height = self._feature_buffer.shape[1]
 		self._label_width = int(1)
 		self._num_examples = len(self._markers_list)
 		self._label_offset = marker_offset
