@@ -1,6 +1,7 @@
 from mido import MidiFile
 import os.path
 import logging
+import random
 import numpy as np
 import importlib
 from .midi_map_config import ARTICULATIONS, NUM_ARTICULATIONS
@@ -27,6 +28,34 @@ class Markers:
 
 		midi_file = MidiFile(marker_path)
 		return Markers(midi_file, midi_map)
+
+	@staticmethod
+	def generate_negative_markers(positive_markers, min_distance_from_positive_markers=0):
+		logging.info('Generating negative markers...')
+	
+		negative_markers = []
+
+		for i, current_positive_marker in enumerate(positive_markers):
+			negative_marker = None
+			if len(positive_markers) > i + 1:
+				next_positive_marker = positive_markers[i + 1]
+				negative_marker = Markers.create_random_between(current_positive_marker, next_positive_marker, min_distance_from_positive_markers)
+
+			if negative_marker is not None:
+				negative_markers.append(negative_marker)
+
+		logging.info(str(len(negative_markers)) + ' negative markers generated')
+		return negative_markers
+
+	@staticmethod
+	def create_random_between(first_marker, second_marker, min_distance_from_markers=0):
+		distance_between_markers = second_marker['pos'] - first_marker['pos'] - (min_distance_from_markers * 2)
+		pos = (random.random() * distance_between_markers) + first_marker['pos'] if distance_between_markers > 0 else None
+
+		if pos is not None:
+			return {'pos': round(pos), 'y': np.zeros(NUM_ARTICULATIONS, dtype=np.int8)}
+		else:
+			return None
 
 	def __init__(self, midi_file, midi_map):
 		self._ticks_per_beat = midi_file.ticks_per_beat

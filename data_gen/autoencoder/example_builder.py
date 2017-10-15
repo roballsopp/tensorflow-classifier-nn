@@ -1,7 +1,7 @@
 import logging
 import math
 import numpy as np
-from scipy import signal as scipy_signal
+from data_gen.spectrogram import spectrogram
 
 def convert_markers_to_label_array(markers, length):
 	label_buffer = np.zeros((length,), np.float32)
@@ -24,30 +24,6 @@ def calc_example_offset(feature_width, num_examples, available_space):
 
 	return math.floor(offset)
 
-def spectrogram(signal, size=64):
-	signal_length = len(signal)
-	segment_length = 1000000
-	stride_length = segment_length - (size - 1)
-	i = 0
-
-	padded_signal = np.pad(signal, [[size, 0]], mode='constant')
-	padded_signal_length = len(padded_signal)
-
-	stft_segments = []
-
-	while i + segment_length < padded_signal_length:
-		segment = padded_signal[i:i + segment_length]
-		_, _, spec = scipy_signal.spectrogram(segment, 11025, nperseg=64, noverlap=63, mode='magnitude')
-		stft_segments.append(spec.transpose())
-		i += stride_length
-
-	final_segment = padded_signal[i:]
-
-	_, _, spec = scipy_signal.spectrogram(final_segment, 11025, nperseg=64, noverlap=63, mode='magnitude')
-	stft_segments.append(spec.transpose())
-
-	return np.concatenate(stft_segments)[:signal_length]
-
 def calc_num_examples_from_offset(feature_width, example_offset, available_space):
 	return math.floor((available_space - feature_width + example_offset) / example_offset)
 
@@ -61,7 +37,7 @@ class ExampleBuilder:
 		buf = wav_file.get_chan(0)
 
 		logging.info('Creating spectrogram...')
-		self._feature_buffer = spectrogram(buf, size=fft_size)
+		self._feature_buffer = spectrogram(buf, size=fft_size, sample_rate=wav_file.sample_rate)
 
 		# normalize
 		value_range = np.ptp(self._feature_buffer)
