@@ -29,7 +29,7 @@ class Wave:
 
 		with wave.open(filepath, 'wb') as file:
 			file.setnchannels(1)
-			file.setsampwidth(bit_depth / 8)
+			file.setsampwidth(int(bit_depth / 8))
 			file.setframerate(self._sample_rate)
 			file.writeframesraw(data_int.data)
 
