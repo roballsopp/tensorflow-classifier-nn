@@ -13,12 +13,12 @@ def spectrogram(signal, size=64, sample_rate=11025):
 	while i + segment_length < signal_length:
 		segment = signal[i:i + segment_length]
 		_, _, spec = scipy_signal.spectrogram(segment, sample_rate, nperseg=size, noverlap=size-1, mode='magnitude')
-		stft_segments.append(spec.transpose())
+		stft_segments.append(spec)
 		i += stride_length
 
 	final_segment = signal[i:]
 
 	_, _, spec = scipy_signal.spectrogram(final_segment, sample_rate, nperseg=size, noverlap=size-1, mode='magnitude')
-	stft_segments.append(spec.transpose())
+	stft_segments.append(spec)
 
-	return np.concatenate(stft_segments)
+	return np.concatenate(stft_segments, axis=1)

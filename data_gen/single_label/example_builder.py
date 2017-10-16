@@ -28,9 +28,9 @@ class ExampleBuilder:
 			trimmed_len = len(padded_signal) + 1 - fft_size
 			trimmed_signal = padded_signal[:trimmed_len]
 			trimmed_signal = normalize(trimmed_signal)
-			trimmed_signal.shape = (-1, 1)
+			trimmed_signal.shape = (1, -1)
 
-			self._feature_buffer = np.concatenate([trimmed_signal, spec], axis=1)
+			self._feature_buffer = np.concatenate([trimmed_signal, spec])
 		else:
 			self._feature_buffer = spec
 
@@ -41,7 +41,7 @@ class ExampleBuilder:
 
 		# number of samples to use for each training example
 		self._feature_width = feature_width
-		self._feature_height = self._feature_buffer.shape[1]
+		self._feature_height = self._feature_buffer.shape[0]
 		self._label_width = int(1)
 		self._num_examples = len(self._markers_list)
 		self._label_offset = marker_offset
@@ -74,7 +74,7 @@ class ExampleBuilder:
 		current_marker = self._markers_list[self._current_example]
 		feature_set_start_pos = current_marker['pos']
 		feature_set_end_pos = current_marker['pos'] + self._feature_width
-		features = self._feature_buffer[feature_set_start_pos:feature_set_end_pos]
+		features = self._feature_buffer[:, feature_set_start_pos:feature_set_end_pos]
 
 		one_label = np.array([1], dtype=np.float32)
 		zero_label = np.array([0], dtype=np.float32)

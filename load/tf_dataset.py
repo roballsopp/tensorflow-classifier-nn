@@ -14,11 +14,13 @@ def get_example_parser(header):
 		features = tf.decode_raw(features_raw, header.feature_type)
 		labels = tf.decode_raw(labels_raw, header.label_type)
 
-		features = tf.reshape(features, [header.feature_width, header.feature_height, header.feature_channels])
+		features = tf.transpose(features)
+
+		features = tf.reshape(features, [header.feature_height, header.feature_width, header.feature_channels])
 		labels = tf.reshape(labels, [header.label_width])
 
-		timeseries_features = features[:, :1, :]
-		spectrogram_features = features[:, 1:, :]
+		timeseries_features = features[:1, :, :]
+		spectrogram_features = features[1:, :, :]
 
 		return timeseries_features, spectrogram_features, labels
 

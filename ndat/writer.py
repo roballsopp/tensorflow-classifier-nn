@@ -37,7 +37,7 @@ class NdatWriter:
 			while self._example_builder.has_next():
 				features, labels = self._example_builder.get_next_example()
 
-				features.tofile(file)
-				labels.tofile(file)
+				file.write(features.tobytes('C'))
+				file.write(labels.tobytes('C'))
 
 		logging.info('Write completed successfully!\n')
