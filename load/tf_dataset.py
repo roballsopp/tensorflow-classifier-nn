@@ -19,7 +19,7 @@ def get_example_parser(header):
 		features = tf.reshape(features, [header.feature_height, header.feature_width, header.feature_channels])
 		labels = tf.reshape(labels, [header.label_width])
 
-		timeseries_features = features[:1, :, :]
+		timeseries_features = tf.squeeze(features[:1, :, :], axis=[0])
 		spectrogram_features = features[1:, :, :]
 
 		return timeseries_features, spectrogram_features, labels

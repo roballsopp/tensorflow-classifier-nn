@@ -8,7 +8,7 @@ import tensorflow as tf
 
 import load
 from retry import RetryRunner
-from train.model import Model
+from train.dual_model import Model
 from train.eval import evaluate
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
@@ -33,10 +33,10 @@ def every_n_steps(n, step, callback):
 		callback(step)
 
 class TrainerGraph:
-	def __init__(self, inputs, labels, reuse=None):
+	def __init__(self, time_series_features, spectrogram_features, labels, reuse=None):
 		self.y = labels
 
-		net = Model(inputs, reuse)
+		net = Model(time_series_features, spectrogram_features, reuse)
 
 		self.hyp = net.forward_prop()
 		self.cost = net.loss(labels)
@@ -85,21 +85,21 @@ else:
 
 logging.info('Building neural network...')
 
-val_dataset = val_dataset.shuffle(10000).repeat().batch(256)
-train_dataset = train_dataset.shuffle(100000).repeat().batch(train_batch_size)
+val_dataset = val_dataset.repeat().batch(256)
+train_dataset = train_dataset.shuffle(40000).repeat().batch(train_batch_size)
 
 iter_data_train = train_dataset.make_initializable_iterator()
 iter_data_val = val_dataset.make_initializable_iterator()
 
-x_train, y_train = iter_data_train.get_next()
-x_val, y_val = iter_data_val.get_next()
+time_series_features_train, spectrogram_features_train, labels_train = iter_data_train.get_next()
+time_series_features_eval, spectrogram_features_eval, labels_eval = iter_data_val.get_next()
 
-graph_train = TrainerGraph(x_train, y_train)
-graph_val = TrainerGraph(x_val, y_val, reuse=True)
+graph_train = TrainerGraph(time_series_features_train, spectrogram_features_train, labels_train)
+graph_val = TrainerGraph(time_series_features_eval, spectrogram_features_eval, labels_eval, reuse=True)
 
 global_step = tf.Variable(step_start, trainable=False, name='global_step')
 
-learning_rate = tf.train.exponential_decay(learning_rate, global_step, decay_steps=300, decay_rate=0.5, staircase=True)
+learning_rate = tf.train.exponential_decay(learning_rate, global_step, decay_steps=5000, decay_rate=0.75)
 
 optimize = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(graph_train.cost, global_step=global_step)
 
