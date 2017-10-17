@@ -26,6 +26,11 @@ def get_example_parser(header):
 
 	return parse_example
 
+def get_file_interleaver(header):
+	def interleave_files(filename):
+		return tf.contrib.data.FixedLengthRecordDataset(filename, header.example_bytes, header_bytes=NdatHeader.HEADER_SIZE)
+	return interleave_files
+
 
 def from_filenames(filenames):
 	num_files = len(filenames)
@@ -35,10 +40,12 @@ def from_filenames(filenames):
 
 	header = NdatHeader.from_file(filenames[0])
 
-	random.shuffle(filenames)
+	interleaver = get_file_interleaver(header)
 
-	dataset = tf.contrib.data.FixedLengthRecordDataset(filenames, header.example_bytes, header_bytes=NdatHeader.HEADER_SIZE)
-	dataset = dataset.map(get_example_parser(header), num_threads=8, output_buffer_size=50000)
+	filenames_dataset = tf.contrib.data.Dataset.from_tensor_slices(filenames)
+
+	dataset = filenames_dataset.interleave(interleaver, cycle_length=num_files, block_length=1)
+	dataset = dataset.map(get_example_parser(header), num_threads=8, output_buffer_size=100000)
 	return dataset
 
 
