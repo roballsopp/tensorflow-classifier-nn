@@ -99,12 +99,14 @@ graph_val = TrainerGraph(time_series_features_eval, spectrogram_features_eval, l
 
 global_step = tf.Variable(step_start, trainable=False, name='global_step')
 
-learning_rate = tf.train.exponential_decay(learning_rate, global_step, decay_steps=5000, decay_rate=0.75)
+learning_rate = tf.train.exponential_decay(learning_rate, global_step, decay_steps=10000, decay_rate=0.5, staircase=True)
 
 optimize = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(graph_train.cost, global_step=global_step)
 
 summaries_train = graph_train.evaluate('train')
 summaries_val = graph_val.evaluate('val')
+lr_summary = tf.summary.scalar('learning_rate', learning_rate)
+summaries = tf.summary.merge([summaries_train, summaries_val, lr_summary])
 
 init = tf.global_variables_initializer()
 
@@ -119,16 +121,15 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=log_device_placement)
 		session_saver.restore(sess, restore_variables_from)
 
 	def add_summary(step):
-		# audio_summary = tf.summary.audio('audio_data', x_train, 11025)
+		# audio_summary = tf.summary.image('image_data', x_train, max_outputs=50)
 		# label_summary = tf.summary.audio('label_data', y_train, 11025)
 		# audio_results, label_results = sess.run([audio_summary, label_summary])
 		# summary_writer.add_summary(audio_results, step)
 		# summary_writer.add_summary(label_results, step)
 
 		runner = RetryRunner(max_retries=10, retry_interval=5.0)
-		train_results, val_results = runner.run(lambda: sess.run([summaries_train, summaries_val]), tf.errors.OutOfRangeError)
-		summary_writer.add_summary(train_results, step)
-		summary_writer.add_summary(val_results, step)
+		summary_buf = runner.run(lambda: sess.run(summaries), tf.errors.OutOfRangeError)
+		summary_writer.add_summary(summary_buf, step)
 		logging.info('Step ' + str(step + 1) + ' of ' + str(num_steps))
 
 	def save_checkpoint(step=None, name='checkpoint', write_meta_graph=False):
