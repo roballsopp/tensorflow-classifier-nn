@@ -55,13 +55,13 @@ class TrainerGraph:
 args = parser.parse_args()
 
 job_dir = args.job_dir
-job_name = args.job_name
 restore_variables_from = args.from_checkpoint
 step_start = args.start_iter
 num_steps = args.num_iters
 learning_rate = args.learning_rate
 train_batch_size = args.train_batch_size
 log_device_placement = args.log_device_placement
+job_name = args.job_name + ' - LR: ' + str(learning_rate) + ' - B: ' + str(train_batch_size)
 
 train_dataset = None
 val_dataset = None
