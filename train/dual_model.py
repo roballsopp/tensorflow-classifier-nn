@@ -3,19 +3,19 @@ import tensorflow as tf
 def swish(x):
 	return x * tf.nn.sigmoid(x)
 
-def conv1d_bn(inputs, training=True, reuse=False, data_format='channels_last', **kwargs):
-	conv_out = tf.layers.conv1d(inputs, **kwargs, data_format=data_format, reuse=reuse)
+def conv1d_bn(inputs, name, training=True, reuse=False, data_format='channels_last', **kwargs):
+	conv_out = tf.layers.conv1d(inputs, **kwargs, data_format=data_format, reuse=reuse, name=name)
 
 	norm_axis = -1 if data_format == 'channels_last' else 1
 
-	return tf.layers.batch_normalization(conv_out, axis=norm_axis, training=training, reuse=reuse)
+	return tf.layers.batch_normalization(conv_out, axis=norm_axis, training=training, reuse=reuse, name=name + '_bn')
 
-def conv2d_bn(inputs, training=True, reuse=False, data_format='channels_last', **kwargs):
-	conv_out = tf.layers.conv2d(inputs, **kwargs, data_format=data_format, reuse=reuse)
+def conv2d_bn(inputs, name, training=True, reuse=False, data_format='channels_last', **kwargs):
+	conv_out = tf.layers.conv2d(inputs, **kwargs, data_format=data_format, reuse=reuse, name=name)
 
 	norm_axis = -1 if data_format == 'channels_last' else 1
 
-	return tf.layers.batch_normalization(conv_out, axis=norm_axis, training=training, reuse=reuse)
+	return tf.layers.batch_normalization(conv_out, axis=norm_axis, training=training, reuse=reuse, name=name + '_bn')
 
 weights_init_seed = 2
 activation = swish
