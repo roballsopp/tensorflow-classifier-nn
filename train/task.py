@@ -33,10 +33,10 @@ def every_n_steps(n, step, callback):
 		callback(step)
 
 class TrainerGraph:
-	def __init__(self, time_series_features, spectrogram_features, labels, reuse=None):
+	def __init__(self, time_series_features, spectrogram_features, labels, training=True, reuse=None):
 		self.y = labels
 
-		net = Model(time_series_features, spectrogram_features, reuse)
+		net = Model(time_series_features, spectrogram_features, training=training, reuse=reuse)
 
 		self.hyp = net.forward_prop()
 		self.cost = net.loss(labels)
@@ -94,14 +94,17 @@ iter_data_val = val_dataset.make_initializable_iterator()
 time_series_features_train, spectrogram_features_train, labels_train = iter_data_train.get_next()
 time_series_features_eval, spectrogram_features_eval, labels_eval = iter_data_val.get_next()
 
-graph_train = TrainerGraph(time_series_features_train, spectrogram_features_train, labels_train)
-graph_val = TrainerGraph(time_series_features_eval, spectrogram_features_eval, labels_eval, reuse=True)
+graph_train = TrainerGraph(time_series_features_train, spectrogram_features_train, labels_train, training=True)
+graph_val = TrainerGraph(time_series_features_eval, spectrogram_features_eval, labels_eval, training=True, reuse=True)
 
 global_step = tf.Variable(step_start, trainable=False, name='global_step')
 
 learning_rate = tf.train.exponential_decay(learning_rate, global_step, decay_steps=10000, decay_rate=0.5, staircase=True)
 
-optimize = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(graph_train.cost, global_step=global_step)
+update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+
+with tf.control_dependencies(update_ops):
+	optimize = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(graph_train.cost, global_step=global_step)
 
 summaries_train = graph_train.evaluate('train')
 summaries_val = graph_val.evaluate('val')

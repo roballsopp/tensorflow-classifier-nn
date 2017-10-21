@@ -3,11 +3,25 @@ import tensorflow as tf
 def swish(x):
 	return x * tf.nn.sigmoid(x)
 
+def conv1d_bn(inputs, training=True, reuse=False, data_format='channels_last', **kwargs):
+	conv_out = tf.layers.conv1d(inputs, **kwargs, data_format=data_format, reuse=reuse)
+
+	norm_axis = -1 if data_format == 'channels_last' else 1
+
+	return tf.layers.batch_normalization(conv_out, axis=norm_axis, training=training, reuse=reuse)
+
+def conv2d_bn(inputs, training=True, reuse=False, data_format='channels_last', **kwargs):
+	conv_out = tf.layers.conv2d(inputs, **kwargs, data_format=data_format, reuse=reuse)
+
+	norm_axis = -1 if data_format == 'channels_last' else 1
+
+	return tf.layers.batch_normalization(conv_out, axis=norm_axis, training=training, reuse=reuse)
+
 weights_init_seed = 2
 activation = swish
 
-def time_series_layers(inputs, reuse, data_format='channels_last'):
-	inputs = tf.layers.conv1d(
+def time_series_layers(inputs, training, reuse, data_format='channels_last'):
+	inputs = conv1d_bn(
 		inputs,
 		filters=32,
 		kernel_size=16,
@@ -16,10 +30,11 @@ def time_series_layers(inputs, reuse, data_format='channels_last'):
 		data_format=data_format,
 		activation=activation,
 		name='time_series_layer_1',
-		reuse=reuse
+		reuse=reuse,
+		training=training
 	)
 
-	inputs = tf.layers.conv1d(
+	inputs = conv1d_bn(
 		inputs,
 		filters=32,
 		kernel_size=16,
@@ -28,10 +43,11 @@ def time_series_layers(inputs, reuse, data_format='channels_last'):
 		data_format=data_format,
 		activation=activation,
 		name='time_series_layer_2',
-		reuse=reuse
+		reuse=reuse,
+		training=training
 	)
 
-	inputs = tf.layers.conv1d(
+	inputs = conv1d_bn(
 		inputs,
 		filters=32,
 		kernel_size=16,
@@ -40,10 +56,11 @@ def time_series_layers(inputs, reuse, data_format='channels_last'):
 		data_format=data_format,
 		activation=activation,
 		name='time_series_layer_3',
-		reuse=reuse
+		reuse=reuse,
+		training=training
 	)
 
-	inputs = tf.layers.conv1d(
+	inputs = conv1d_bn(
 		inputs,
 		filters=32,
 		kernel_size=16,
@@ -52,10 +69,11 @@ def time_series_layers(inputs, reuse, data_format='channels_last'):
 		data_format=data_format,
 		activation=activation,
 		name='time_series_layer_4',
-		reuse=reuse
+		reuse=reuse,
+		training=training
 	)
 
-	inputs = tf.layers.conv1d(
+	inputs = conv1d_bn(
 		inputs,
 		filters=32,
 		kernel_size=16,
@@ -64,10 +82,11 @@ def time_series_layers(inputs, reuse, data_format='channels_last'):
 		data_format=data_format,
 		activation=activation,
 		name='time_series_layer_5',
-		reuse=reuse
+		reuse=reuse,
+		training=training
 	)
 
-	inputs = tf.layers.conv1d(
+	inputs = conv1d_bn(
 		inputs,
 		filters=32,
 		kernel_size=16,
@@ -76,10 +95,11 @@ def time_series_layers(inputs, reuse, data_format='channels_last'):
 		data_format=data_format,
 		activation=activation,
 		name='time_series_layer_6',
-		reuse=reuse
+		reuse=reuse,
+		training=training
 	)
 
-	inputs = tf.layers.conv1d(
+	inputs = conv1d_bn(
 		inputs,
 		filters=32,
 		kernel_size=16,
@@ -88,10 +108,11 @@ def time_series_layers(inputs, reuse, data_format='channels_last'):
 		data_format=data_format,
 		activation=activation,
 		name='time_series_layer_7',
-		reuse=reuse
+		reuse=reuse,
+		training=training
 	)
 
-	inputs = tf.layers.conv1d(
+	inputs = conv1d_bn(
 		inputs,
 		filters=32,
 		kernel_size=16,
@@ -100,10 +121,11 @@ def time_series_layers(inputs, reuse, data_format='channels_last'):
 		data_format=data_format,
 		activation=activation,
 		name='time_series_layer_8',
-		reuse=reuse
+		reuse=reuse,
+		training=training
 	)
 
-	inputs = tf.layers.conv1d(
+	inputs = conv1d_bn(
 		inputs,
 		filters=32,
 		kernel_size=16,
@@ -112,10 +134,11 @@ def time_series_layers(inputs, reuse, data_format='channels_last'):
 		data_format=data_format,
 		activation=activation,
 		name='time_series_layer_9',
-		reuse=reuse
+		reuse=reuse,
+		training=training
 	)
 
-	inputs = tf.layers.conv1d(
+	inputs = conv1d_bn(
 		inputs,
 		filters=32,
 		kernel_size=16,
@@ -124,13 +147,14 @@ def time_series_layers(inputs, reuse, data_format='channels_last'):
 		data_format=data_format,
 		activation=activation,
 		name='time_series_layer_10',
-		reuse=reuse
+		reuse=reuse,
+		training=training
 	)
 
 	return inputs
 
-def spectrogram_layers(inputs, reuse=None, data_format='channels_last'):
-	inputs = tf.layers.conv2d(
+def spectrogram_layers(inputs, training, reuse, data_format='channels_last'):
+	inputs = conv2d_bn(
 		inputs,
 		filters=32,
 		kernel_size=(1, 16),
@@ -139,10 +163,11 @@ def spectrogram_layers(inputs, reuse=None, data_format='channels_last'):
 		data_format=data_format,
 		activation=activation,
 		name='spectrogram_layer_1',
-		reuse=reuse
+		reuse=reuse,
+		training=training
 	)
 
-	inputs = tf.layers.conv2d(
+	inputs = conv2d_bn(
 		inputs,
 		filters=32,
 		kernel_size=(1, 16),
@@ -151,10 +176,11 @@ def spectrogram_layers(inputs, reuse=None, data_format='channels_last'):
 		data_format=data_format,
 		activation=activation,
 		name='spectrogram_layer_2',
-		reuse=reuse
+		reuse=reuse,
+		training=training
 	)
 
-	inputs = tf.layers.conv2d(
+	inputs = conv2d_bn(
 		inputs,
 		filters=32,
 		kernel_size=(1, 16),
@@ -163,10 +189,11 @@ def spectrogram_layers(inputs, reuse=None, data_format='channels_last'):
 		data_format=data_format,
 		activation=activation,
 		name='spectrogram_layer_3',
-		reuse=reuse
+		reuse=reuse,
+		training=training
 	)
 
-	inputs = tf.layers.conv2d(
+	inputs = conv2d_bn(
 		inputs,
 		filters=32,
 		kernel_size=(1, 16),
@@ -175,10 +202,11 @@ def spectrogram_layers(inputs, reuse=None, data_format='channels_last'):
 		data_format=data_format,
 		activation=activation,
 		name='spectrogram_layer_4',
-		reuse=reuse
+		reuse=reuse,
+		training=training
 	)
 
-	inputs = tf.layers.conv2d(
+	inputs = conv2d_bn(
 		inputs,
 		filters=32,
 		kernel_size=(1, 16),
@@ -187,10 +215,11 @@ def spectrogram_layers(inputs, reuse=None, data_format='channels_last'):
 		data_format=data_format,
 		activation=activation,
 		name='spectrogram_layer_5',
-		reuse=reuse
+		reuse=reuse,
+		training=training
 	)
 
-	inputs = tf.layers.conv2d(
+	inputs = conv2d_bn(
 		inputs,
 		filters=32,
 		kernel_size=(2, 16),
@@ -199,10 +228,11 @@ def spectrogram_layers(inputs, reuse=None, data_format='channels_last'):
 		data_format=data_format,
 		activation=activation,
 		name='spectrogram_layer_6',
-		reuse=reuse
+		reuse=reuse,
+		training=training
 	)
 
-	inputs = tf.layers.conv2d(
+	inputs = conv2d_bn(
 		inputs,
 		filters=32,
 		kernel_size=(2, 16),
@@ -211,10 +241,11 @@ def spectrogram_layers(inputs, reuse=None, data_format='channels_last'):
 		data_format=data_format,
 		activation=activation,
 		name='spectrogram_layer_7',
-		reuse=reuse
+		reuse=reuse,
+		training=training
 	)
 
-	inputs = tf.layers.conv2d(
+	inputs = conv2d_bn(
 		inputs,
 		filters=32,
 		kernel_size=(2, 16),
@@ -223,10 +254,11 @@ def spectrogram_layers(inputs, reuse=None, data_format='channels_last'):
 		data_format=data_format,
 		activation=activation,
 		name='spectrogram_layer_8',
-		reuse=reuse
+		reuse=reuse,
+		training=training
 	)
 
-	inputs = tf.layers.conv2d(
+	inputs = conv2d_bn(
 		inputs,
 		filters=32,
 		kernel_size=(2, 16),
@@ -235,10 +267,11 @@ def spectrogram_layers(inputs, reuse=None, data_format='channels_last'):
 		data_format=data_format,
 		activation=activation,
 		name='spectrogram_layer_9',
-		reuse=reuse
+		reuse=reuse,
+		training=training
 	)
 
-	inputs = tf.layers.conv2d(
+	inputs = conv2d_bn(
 		inputs,
 		filters=32,
 		kernel_size=(2, 16),
@@ -247,15 +280,16 @@ def spectrogram_layers(inputs, reuse=None, data_format='channels_last'):
 		data_format=data_format,
 		activation=activation,
 		name='spectrogram_layer_10',
-		reuse=reuse
+		reuse=reuse,
+		training=training
 	)
 
 	return inputs
 
 class Model:
-	def __init__(self, time_series_inputs, spectrogram_inputs, reuse=None, data_format='channels_last'):
-		time_series_out = time_series_layers(time_series_inputs, reuse, data_format)
-		spectrogram_out = spectrogram_layers(spectrogram_inputs, reuse, data_format)
+	def __init__(self, time_series_inputs, spectrogram_inputs, training, reuse, data_format='channels_last'):
+		time_series_out = time_series_layers(time_series_inputs, training, reuse, data_format)
+		spectrogram_out = spectrogram_layers(spectrogram_inputs, training, reuse, data_format)
 
 		time_series_out = tf.expand_dims(time_series_out, axis=1)
 
