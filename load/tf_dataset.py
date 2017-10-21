@@ -45,7 +45,7 @@ def from_filenames(filenames):
 	filenames_dataset = tf.contrib.data.Dataset.from_tensor_slices(filenames)
 
 	dataset = filenames_dataset.interleave(interleaver, cycle_length=num_files, block_length=1)
-	dataset = dataset.map(get_example_parser(header), num_threads=8, output_buffer_size=100000)
+	dataset = dataset.map(get_example_parser(header), num_threads=8, output_buffer_size=50000)
 	return dataset
 
 
