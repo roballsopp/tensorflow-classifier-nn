@@ -7,7 +7,6 @@ from argparse import ArgumentParser
 import tensorflow as tf
 
 import load
-from retry import RetryRunner
 from train.dual_model import Model
 from train.eval import evaluate
 
@@ -32,25 +31,15 @@ def every_n_steps(n, step, callback):
 	if (step > 0) and ((step + 1) % n == 0):
 		callback(step)
 
-class TrainerGraph:
-	def __init__(self, time_series_features, spectrogram_features, labels, training=True, reuse=None):
-		self.y = labels
 
-		net = Model(time_series_features, spectrogram_features, training=training, reuse=reuse)
+def build_summaries(metrics, family=None):
+	summaries = []
 
-		self.hyp = net.forward_prop()
-		self.cost = net.loss(labels)
+	for metric_name in metrics:
+		summary = tf.summary.scalar(metric_name, metrics[metric_name], family=family)
+		summaries.append(summary)
 
-	def evaluate(self, summary_namespace):
-		metrics = evaluate(self.hyp, self.y)
-		summaries = [tf.summary.scalar('cost_' + summary_namespace, self.cost)]
-
-		for metric_name in metrics:
-			summary = tf.summary.scalar(metric_name + '_' + summary_namespace, metrics[metric_name])
-			summaries.append(summary)
-
-		return tf.summary.merge(summaries)
-
+	return tf.summary.merge(summaries)
 
 args = parser.parse_args()
 
@@ -91,11 +80,16 @@ train_dataset = train_dataset.shuffle(40000).repeat().batch(train_batch_size)
 iter_data_train = train_dataset.make_initializable_iterator()
 iter_data_val = val_dataset.make_initializable_iterator()
 
-time_series_features_train, spectrogram_features_train, labels_train = iter_data_train.get_next()
-time_series_features_eval, spectrogram_features_eval, labels_eval = iter_data_val.get_next()
+batch_train = iter_data_train.get_next()
+batch_eval = iter_data_val.get_next()
 
-graph_train = TrainerGraph(time_series_features_train, spectrogram_features_train, labels_train, training=True)
-graph_val = TrainerGraph(time_series_features_eval, spectrogram_features_eval, labels_eval, training=True, reuse=True)
+use_eval = tf.placeholder(tf.bool, name='use_eval')
+
+time_series_features, spectrogram_features, labels = tf.cond(use_eval, lambda: batch_eval, lambda: batch_train)
+
+model = Model(time_series_features, spectrogram_features, training=tf.logical_not(use_eval), reuse=False)
+hypothesis = model.forward_prop()
+cost = model.loss(labels)
 
 global_step = tf.Variable(step_start, trainable=False, name='global_step')
 
@@ -104,12 +98,17 @@ learning_rate = tf.train.exponential_decay(learning_rate, global_step, decay_ste
 update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
 
 with tf.control_dependencies(update_ops):
-	optimize = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(graph_train.cost, global_step=global_step)
+	optimize = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost, global_step=global_step)
 
-summaries_train = graph_train.evaluate('train')
-summaries_val = graph_val.evaluate('val')
+metrics = evaluate(hypothesis, labels)
+metrics['cost'] = cost
+
+train_summaries = build_summaries(metrics, family='train')
+eval_summaries = build_summaries(metrics, family='eval')
 lr_summary = tf.summary.scalar('learning_rate', learning_rate)
-summaries = tf.summary.merge([summaries_train, summaries_val, lr_summary])
+
+summaries = tf.cond(use_eval, lambda: eval_summaries, lambda: train_summaries)
+summaries = tf.summary.merge([summaries, lr_summary])
 
 init = tf.global_variables_initializer()
 
@@ -130,9 +129,11 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=log_device_placement)
 		# summary_writer.add_summary(audio_results, step)
 		# summary_writer.add_summary(label_results, step)
 
-		runner = RetryRunner(max_retries=10, retry_interval=5.0)
-		summary_buf = runner.run(lambda: sess.run(summaries), tf.errors.OutOfRangeError)
-		summary_writer.add_summary(summary_buf, step)
+		train_summary_buf = sess.run(summaries, feed_dict={use_eval: False})
+		eval_summary_buf = sess.run(summaries, feed_dict={use_eval: True})
+
+		summary_writer.add_summary(train_summary_buf, step)
+		summary_writer.add_summary(eval_summary_buf, step)
 		logging.info('Step ' + str(step + 1) + ' of ' + str(num_steps))
 
 	def save_checkpoint(step=None, name='checkpoint', write_meta_graph=False):
@@ -143,9 +144,9 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=log_device_placement)
 	logging.info('Training neural network...')
 
 	for step in range(step_start, num_steps):
-		runner = RetryRunner(max_retries=10, retry_interval=5.0)
-		runner.run(lambda: sess.run(optimize), tf.errors.OutOfRangeError)
+		sess.run(optimize, feed_dict={use_eval: False})
 		every_n_steps(10, step, add_summary)
 		every_n_steps(100, step, save_checkpoint)
 
 	save_checkpoint(name='export', write_meta_graph=True)
+
