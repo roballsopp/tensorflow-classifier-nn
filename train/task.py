@@ -24,6 +24,7 @@ parser.add_argument('--start-iter', type=int, help="Specify the training iterati
 parser.add_argument('--learning-rate', type=float, help="Specify the learning rate.", default=0.001)
 parser.add_argument('--train-batch-size', type=int, help="Specify the training batch size.", default=256)
 parser.add_argument('--log-device-placement', type=bool, help="Log the device eah op is placed on.", default=False)
+parser.add_argument('--channels-last', type=bool, help="Specify the data format to build the model with", default=False)
 parser.add_argument('--from-checkpoint', type=str, help="Specify a checkpoint to restore from.")
 
 
@@ -49,6 +50,7 @@ step_start = args.start_iter
 num_steps = args.num_iters
 learning_rate = args.learning_rate
 train_batch_size = args.train_batch_size
+channels_last = args.channels_last
 log_device_placement = args.log_device_placement
 job_name = args.job_name + ' - LR-' + str(learning_rate) + ' - B-' + str(train_batch_size)
 
@@ -69,13 +71,13 @@ else:
 	eval_filenames = glob.glob(args.eval_files, recursive=True)
 	logging.info('Found ' + str(len(eval_filenames)) + ' files.')
 
-	train_dataset = load.from_filenames(training_filenames)
-	val_dataset = load.from_filenames(eval_filenames)
+	train_dataset = load.from_filenames(training_filenames, channels_last)
+	val_dataset = load.from_filenames(eval_filenames, channels_last)
 
 logging.info('Building neural network...')
 
 val_dataset = val_dataset.repeat().batch(256)
-train_dataset = train_dataset.shuffle(40000).repeat().batch(train_batch_size)
+train_dataset = train_dataset.repeat().shuffle(40000).batch(train_batch_size)
 
 iter_data_train = train_dataset.make_initializable_iterator()
 iter_data_val = val_dataset.make_initializable_iterator()
@@ -87,7 +89,7 @@ use_eval = tf.placeholder(tf.bool, name='use_eval')
 
 time_series_features, spectrogram_features, labels = tf.cond(use_eval, lambda: batch_eval, lambda: batch_train)
 
-model = Model(time_series_features, spectrogram_features, training=tf.logical_not(use_eval), reuse=False)
+model = Model(time_series_features, spectrogram_features, training=tf.logical_not(use_eval), reuse=False, channels_last=channels_last)
 hypothesis = model.forward_prop()
 cost = model.loss(labels)
 
@@ -124,11 +126,10 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=log_device_placement)
 		session_saver.restore(sess, restore_variables_from)
 
 	def add_summary(step):
-		# audio_summary = tf.summary.image('image_data', x_train, max_outputs=50)
-		# label_summary = tf.summary.audio('label_data', y_train, 11025)
-		# audio_results, label_results = sess.run([audio_summary, label_summary])
-		# summary_writer.add_summary(audio_results, step)
-		# summary_writer.add_summary(label_results, step)
+		# spectrogram_summary = tf.summary.image('spectrogram_data', tf.reshape(spectrogram_features, [128, 33, 256, 1]), max_outputs=50)
+		# time_series_summary = tf.summary.audio('time_series_data', tf.reshape(time_series_features, [128, 256, 1]), 11025, max_outputs=50)
+		# summary_buf = sess.run(tf.summary.merge([spectrogram_summary, time_series_summary]), feed_dict={use_eval: False})
+		# summary_writer.add_summary(summary_buf, step)
 
 		train_summary_buf = sess.run(summaries, feed_dict={use_eval: False})
 		eval_summary_buf = sess.run(summaries, feed_dict={use_eval: True})

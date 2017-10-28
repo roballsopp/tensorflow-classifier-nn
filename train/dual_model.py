@@ -287,13 +287,17 @@ def spectrogram_layers(inputs, training, reuse, data_format='channels_last'):
 	return inputs
 
 class Model:
-	def __init__(self, time_series_inputs, spectrogram_inputs, training, reuse, data_format='channels_last'):
+	def __init__(self, time_series_inputs, spectrogram_inputs, training, reuse=False, channels_last=False):
+		data_format = 'channels_last' if channels_last else 'channels_first'
+
 		time_series_out = time_series_layers(time_series_inputs, training, reuse, data_format)
 		spectrogram_out = spectrogram_layers(spectrogram_inputs, training, reuse, data_format)
 
-		time_series_out = tf.expand_dims(time_series_out, axis=1)
+		height_axis = 1 if channels_last else 2
 
-		merged_outs = tf.concat([time_series_out, spectrogram_out], axis=1)
+		time_series_out = tf.expand_dims(time_series_out, axis=height_axis)
+
+		merged_outs = tf.concat([time_series_out, spectrogram_out], axis=height_axis, name='final_input_merge')
 
 		final_out = tf.layers.conv2d(
 			merged_outs,

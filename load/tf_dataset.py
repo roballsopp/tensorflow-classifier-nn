@@ -6,7 +6,7 @@ from google.cloud import storage
 
 from ndat.header import NdatHeader
 
-def get_example_parser(header):
+def get_example_parser(header, channels_last=False):
 	def parse_example(example_raw):
 		features_raw = tf.substr(example_raw, 0, header.feature_bytes)
 		labels_raw = tf.substr(example_raw, header.feature_bytes, header.label_bytes)
@@ -14,13 +14,18 @@ def get_example_parser(header):
 		features = tf.decode_raw(features_raw, header.feature_type)
 		labels = tf.decode_raw(labels_raw, header.label_type)
 
-		features = tf.transpose(features)
+		if channels_last:
+			features = tf.reshape(features, [header.feature_height, header.feature_width, header.feature_channels])
+			labels = tf.reshape(labels, [header.label_width])
 
-		features = tf.reshape(features, [header.feature_height, header.feature_width, header.feature_channels])
-		labels = tf.reshape(labels, [header.label_width])
+			timeseries_features = tf.squeeze(features[:1, :, :], axis=[0])
+			spectrogram_features = features[1:, :, :]
+		else:
+			features = tf.reshape(features, [header.feature_channels, header.feature_height, header.feature_width])
+			labels = tf.reshape(labels, [header.label_width])
 
-		timeseries_features = tf.squeeze(features[:1, :, :], axis=[0])
-		spectrogram_features = features[1:, :, :]
+			timeseries_features = tf.squeeze(features[:, :1, :], axis=[1])
+			spectrogram_features = features[:, 1:, :]
 
 		return timeseries_features, spectrogram_features, labels
 
@@ -32,7 +37,7 @@ def get_file_interleaver(header):
 	return interleave_files
 
 
-def from_filenames(filenames):
+def from_filenames(filenames, channels_last=False):
 	num_files = len(filenames)
 
 	if num_files == 0:
@@ -45,7 +50,7 @@ def from_filenames(filenames):
 	filenames_dataset = tf.contrib.data.Dataset.from_tensor_slices(filenames)
 
 	dataset = filenames_dataset.interleave(interleaver, cycle_length=num_files, block_length=1)
-	dataset = dataset.map(get_example_parser(header), num_threads=8, output_buffer_size=50000)
+	dataset = dataset.map(get_example_parser(header, channels_last), num_threads=8, output_buffer_size=50000)
 	return dataset
 
 
