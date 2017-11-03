@@ -13,7 +13,8 @@ class Markers:
 	def from_file(marker_path, map_path):
 		if not os.path.exists(map_path):
 			logging.warning('No midi map found at ' + map_path + '.Using default midi map')
-			map_path = './default-midi-map.py'
+			default_map_dir = os.path.dirname(os.path.realpath(__file__))
+			map_path = os.path.join(default_map_dir, 'default_midi_map.py')
 
 		logging.info('Loading markers from ' + marker_path + '...')
 		logging.info('Using midi map at ' + map_path)
