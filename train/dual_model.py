@@ -237,28 +237,31 @@ def spectrogram_layers(inputs, training, reuse, data_format='channels_last'):
 class Model:
 	def __init__(self, time_series_inputs, spectrogram_inputs, training, reuse=False, channels_last=False):
 		data_format = 'channels_last' if channels_last else 'channels_first'
-
-		time_series_out = time_series_layers(time_series_inputs, training, reuse, data_format)
-		spectrogram_out = spectrogram_layers(spectrogram_inputs, training, reuse, data_format)
-
 		height_axis = 1 if channels_last else 2
 
-		time_series_out = tf.expand_dims(time_series_out, axis=height_axis)
+		with tf.variable_scope("dual_model"):
+			time_series_out = time_series_layers(time_series_inputs, training, reuse, data_format)
+			spectrogram_out = spectrogram_layers(spectrogram_inputs, training, reuse, data_format)
 
-		merged_outs = tf.concat([time_series_out, spectrogram_out], axis=height_axis, name='final_input_merge')
+			time_series_out = tf.expand_dims(time_series_out, axis=height_axis)
 
-		final_out = tf.layers.conv2d(
-			merged_outs,
-			filters=1,
-			kernel_size=(3, 22),
-			strides=(3, 22),
-			kernel_initializer=tf.contrib.layers.xavier_initializer(seed=weights_init_seed),
-			data_format=data_format,
-			name='output_layer',
-			reuse=reuse
-		)
+			merged_outs = tf.concat([time_series_out, spectrogram_out], axis=height_axis, name='final_input_merge')
+
+			final_out = tf.layers.conv2d(
+				merged_outs,
+				filters=1,
+				kernel_size=(3, 22),
+				strides=(3, 22),
+				kernel_initializer=tf.contrib.layers.xavier_initializer(seed=weights_init_seed),
+				data_format=data_format,
+				name='output_layer',
+				reuse=reuse
+			)
 
 		self._raw_outputs = tf.squeeze(final_out, [2, 3])
+
+	def get_savable_vars(self):
+		return tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='dual_model')
 
 	def forward_prop(self):
 		return tf.nn.sigmoid(self._raw_outputs)

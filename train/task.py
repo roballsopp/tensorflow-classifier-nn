@@ -115,8 +115,8 @@ summaries = tf.summary.merge([summaries, lr_summary])
 init = tf.global_variables_initializer()
 
 with tf.Session(config=tf.ConfigProto(log_device_placement=log_device_placement)) as sess:
-	vars_to_save = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
-	session_saver = tf.train.Saver(var_list=vars_to_save)
+	model_vars = model.get_savable_vars()
+	session_saver = tf.train.Saver(var_list=model_vars)
 	summary_writer = tf.summary.FileWriter(os.path.join(job_dir, job_name), graph=sess.graph)
 
 	sess.run([init, iter_data_train.initializer, iter_data_val.initializer])
