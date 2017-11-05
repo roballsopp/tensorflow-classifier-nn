@@ -27,6 +27,13 @@ def get_example_parser(header, channels_last=False):
 			timeseries_features = tf.squeeze(features[:, :1, :], axis=[1])
 			spectrogram_features = features[:, 1:, :]
 
+		# normalize each example
+		timeseries_max = tf.reduce_max(tf.abs(timeseries_features))
+		timeseries_features = timeseries_features / timeseries_max
+
+		spectrogram_max = tf.reduce_max(tf.abs(spectrogram_features))
+		spectrogram_features = spectrogram_features / spectrogram_max
+
 		return timeseries_features, spectrogram_features, labels
 
 	return parse_example
