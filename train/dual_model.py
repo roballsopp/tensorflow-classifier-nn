@@ -66,7 +66,7 @@ def spectrogram_layers(inputs, training, reuse, data_format='channels_last'):
 	inputs = conv2d_bn(
 		inputs,
 		filters=32,
-		kernel_size=(1, 8),
+		kernel_size=(2, 8),
 		strides=(1, 1),
 		kernel_initializer=tf.contrib.layers.xavier_initializer(seed=weights_init_seed),
 		data_format=data_format,
@@ -79,7 +79,7 @@ def spectrogram_layers(inputs, training, reuse, data_format='channels_last'):
 	inputs = conv2d_bn(
 		inputs,
 		filters=32,
-		kernel_size=(2, 32),
+		kernel_size=(1, 32),
 		strides=(1, 1),
 		kernel_initializer=tf.contrib.layers.xavier_initializer(seed=weights_init_seed),
 		data_format=data_format,
@@ -92,7 +92,7 @@ def spectrogram_layers(inputs, training, reuse, data_format='channels_last'):
 	inputs = conv2d_bn(
 		inputs,
 		filters=64,
-		kernel_size=(1, 218),
+		kernel_size=(32, 218),
 		strides=(1, 1),
 		kernel_initializer=tf.contrib.layers.xavier_initializer(seed=weights_init_seed),
 		data_format=data_format,
@@ -120,7 +120,7 @@ class Model:
 			final_out = tf.layers.conv2d(
 				merged_outs,
 				filters=1,
-				kernel_size=(33, 1),
+				kernel_size=(2, 1),
 				strides=(1, 1),
 				kernel_initializer=tf.contrib.layers.xavier_initializer(seed=weights_init_seed),
 				data_format=data_format,
