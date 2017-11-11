@@ -6,16 +6,14 @@ def swish(x):
 def conv1d_bn(inputs, name, training=True, reuse=False, data_format='channels_last', **kwargs):
 	conv_out = tf.layers.conv1d(inputs, **kwargs, data_format=data_format, reuse=reuse, name=name)
 
-	norm_axis = -1 if data_format == 'channels_last' else 1
-
-	return tf.layers.batch_normalization(conv_out, axis=norm_axis, training=training, reuse=reuse, fused=True, name=name + '_bn')
+	example_maxes = tf.reduce_max(tf.abs(conv_out), axis=[1, 2])
+	return conv_out / tf.reshape(example_maxes, [-1, 1, 1])
 
 def conv2d_bn(inputs, name, training=True, reuse=False, data_format='channels_last', **kwargs):
 	conv_out = tf.layers.conv2d(inputs, **kwargs, data_format=data_format, reuse=reuse, name=name)
 
-	norm_axis = -1 if data_format == 'channels_last' else 1
-
-	return tf.layers.batch_normalization(conv_out, axis=norm_axis, training=training, reuse=reuse, fused=True, name=name + '_bn')
+	example_maxes = tf.reduce_max(tf.abs(conv_out), axis=[1, 2, 3])
+	return conv_out / tf.reshape(example_maxes, [-1, 1, 1, 1])
 
 weights_init_seed = 5
 activation = swish

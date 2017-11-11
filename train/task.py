@@ -97,10 +97,7 @@ global_step = tf.Variable(step_start, trainable=False, name='global_step')
 
 learning_rate = tf.train.exponential_decay(learning_rate, global_step, decay_steps=10000, decay_rate=0.5, staircase=True)
 
-update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-
-with tf.control_dependencies(update_ops):
-	optimize = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost, global_step=global_step)
+optimize = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost, global_step=global_step)
 
 metrics = evaluate(hypothesis, labels)
 metrics['cost'] = cost
