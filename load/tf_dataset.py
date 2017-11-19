@@ -28,11 +28,13 @@ def get_example_parser(header, channels_last=False):
 			spectrogram_features = features[:, 1:, :]
 
 		# normalize each example
-		timeseries_max = tf.reduce_max(tf.abs(timeseries_features))
-		timeseries_features = timeseries_features / timeseries_max
+		# timeseries_max = tf.reduce_max(tf.abs(timeseries_features))
+		timeseries_rms = tf.sqrt(tf.reduce_mean(tf.square(timeseries_features)))
+		timeseries_features = timeseries_features / timeseries_rms
 
-		spectrogram_max = tf.reduce_max(tf.abs(spectrogram_features))
-		spectrogram_features = spectrogram_features / spectrogram_max
+		# spectrogram_max = tf.reduce_max(tf.abs(spectrogram_features))
+		spectrogram_rms = tf.sqrt(tf.reduce_mean(tf.square(spectrogram_features)))
+		spectrogram_features = spectrogram_features / spectrogram_rms
 
 		return timeseries_features, spectrogram_features, labels
 
@@ -40,7 +42,7 @@ def get_example_parser(header, channels_last=False):
 
 def get_file_interleaver(header):
 	def interleave_files(filename):
-		return tf.contrib.data.FixedLengthRecordDataset(filename, header.example_bytes, header_bytes=NdatHeader.HEADER_SIZE)
+		return tf.data.FixedLengthRecordDataset(filename, header.example_bytes, header_bytes=NdatHeader.HEADER_SIZE)
 	return interleave_files
 
 
@@ -54,10 +56,10 @@ def from_filenames(filenames, channels_last=False):
 
 	interleaver = get_file_interleaver(header)
 
-	filenames_dataset = tf.contrib.data.Dataset.from_tensor_slices(filenames)
+	filenames_dataset = tf.data.Dataset.from_tensor_slices(filenames)
 
 	dataset = filenames_dataset.interleave(interleaver, cycle_length=num_files, block_length=1)
-	dataset = dataset.map(get_example_parser(header, channels_last), num_threads=8, output_buffer_size=50000)
+	dataset = dataset.map(get_example_parser(header, channels_last), num_parallel_calls=8).prefetch(30000)
 	return dataset
 
 
@@ -87,6 +89,6 @@ def from_bucket(bucket_name, prefix=None):
 
 	header = NdatHeader.from_blob(blobs[0])
 
-	dataset = tf.contrib.data.FixedLengthRecordDataset(filenames, header.example_bytes, header_bytes=NdatHeader.HEADER_SIZE)
-	dataset = dataset.map(get_example_parser(header), num_threads=8, output_buffer_size=50000)
+	dataset = tf.data.FixedLengthRecordDataset(filenames, header.example_bytes, header_bytes=NdatHeader.HEADER_SIZE)
+	dataset = dataset.map(get_example_parser(header), num_parallel_calls=8).prefetch(30000)
 	return dataset
