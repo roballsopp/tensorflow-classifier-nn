@@ -1,10 +1,10 @@
 import logging
-import random
 
 import tensorflow as tf
 from google.cloud import storage
 
 from ndat.header import NdatHeader
+
 
 def get_example_parser(header, channels_last=False):
 	def parse_example(example_raw):
@@ -17,28 +17,36 @@ def get_example_parser(header, channels_last=False):
 		if channels_last:
 			features = tf.reshape(features, [header.feature_height, header.feature_width, header.feature_channels])
 			labels = tf.reshape(labels, [header.label_width])
-
-			timeseries_features = tf.squeeze(features[:1, :, :], axis=[0])
-			spectrogram_features = features[1:, :, :]
 		else:
 			features = tf.reshape(features, [header.feature_channels, header.feature_height, header.feature_width])
 			labels = tf.reshape(labels, [header.label_width])
 
-			timeseries_features = tf.squeeze(features[:, :1, :], axis=[1])
-			spectrogram_features = features[:, 1:, :]
-
-		# normalize each example
-		# timeseries_max = tf.reduce_max(tf.abs(timeseries_features))
-		timeseries_rms = tf.sqrt(tf.reduce_mean(tf.square(timeseries_features)))
-		timeseries_features = timeseries_features / timeseries_rms
-
-		# spectrogram_max = tf.reduce_max(tf.abs(spectrogram_features))
-		spectrogram_rms = tf.sqrt(tf.reduce_mean(tf.square(spectrogram_features)))
-		spectrogram_features = spectrogram_features / spectrogram_rms
-
-		return timeseries_features, spectrogram_features, labels
+		return features, labels
 
 	return parse_example
+
+
+def get_splitter(split_row, channels_last=False):
+	def split_features(features, labels):
+		if channels_last:
+			# time series features, spectrogram features, labels
+			return features[:split_row, :, :], features[split_row:, :, :], labels
+		else:
+			# time series features, spectrogram features, labels
+			return features[:, :split_row, :], features[:, split_row:, :], labels
+	return split_features
+
+
+def rms_normalize(*args):
+	# don't include the last element, which should be the labels
+	feature_arrays = args[:-1]
+
+	def rms_normalize_example(features):
+		features_rms = tf.sqrt(tf.reduce_mean(tf.square(features)))
+		return features / features_rms
+
+	return list(map(rms_normalize_example, feature_arrays)) + list(args[-1:])
+
 
 def get_file_interleaver(header):
 	def interleave_files(filename):
@@ -54,12 +62,11 @@ def from_filenames(filenames, channels_last=False):
 
 	header = NdatHeader.from_file(filenames[0])
 
-	interleaver = get_file_interleaver(header)
-
 	filenames_dataset = tf.data.Dataset.from_tensor_slices(filenames)
 
-	dataset = filenames_dataset.interleave(interleaver, cycle_length=num_files, block_length=1)
+	dataset = filenames_dataset.interleave(get_file_interleaver(header), cycle_length=num_files, block_length=1)
 	dataset = dataset.map(get_example_parser(header, channels_last), num_parallel_calls=8).prefetch(30000)
+	dataset = dataset.map(get_splitter(1, channels_last)).map(rms_normalize)
 	return dataset
 
 
