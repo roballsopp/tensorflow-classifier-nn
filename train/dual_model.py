@@ -102,13 +102,25 @@ def spectrogram_layers(inputs, training, reuse, data_format='channels_last'):
 
 	return inputs
 
+def get_fft(time_series_inputs, channels_last=False):
+	channel_axis = -1 if channels_last else 1
+
+	stfts = tf.contrib.signal.stft(
+		tf.squeeze(time_series_inputs, axis=[1, 2]),
+		frame_length=64, frame_step=1, fft_length=64, pad_end=True
+	)
+
+	return tf.expand_dims(tf.abs(stfts), axis=channel_axis)
+
+
 class Model:
-	def __init__(self, time_series_inputs, spectrogram_inputs, training, reuse=False, channels_last=False):
+	def __init__(self, time_series_inputs, training, reuse=False, channels_last=False):
 		data_format = 'channels_last' if channels_last else 'channels_first'
 		height_axis = 1 if channels_last else 2
 
 		with tf.variable_scope("dual_model"):
 			time_series_out = time_series_layers(time_series_inputs, training, reuse, data_format)
+			spectrogram_inputs = get_fft(time_series_inputs, channels_last=channels_last)
 			spectrogram_out = spectrogram_layers(spectrogram_inputs, training, reuse, data_format)
 
 			time_series_out = tf.expand_dims(time_series_out, axis=height_axis)

@@ -87,9 +87,9 @@ batch_eval = iter_data_val.get_next()
 
 use_eval = tf.placeholder(tf.bool, name='use_eval')
 
-time_series_features, spectrogram_features, labels = tf.cond(use_eval, lambda: batch_eval, lambda: batch_train)
+time_series_features, labels = tf.cond(use_eval, lambda: batch_eval, lambda: batch_train)
 
-model = Model(time_series_features, spectrogram_features, training=tf.logical_not(use_eval), reuse=False, channels_last=channels_last)
+model = Model(time_series_features, training=tf.logical_not(use_eval), reuse=False, channels_last=channels_last)
 hypothesis = model.forward_prop()
 cost = model.loss(labels)
 

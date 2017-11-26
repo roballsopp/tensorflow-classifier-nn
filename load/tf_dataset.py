@@ -26,26 +26,11 @@ def get_example_parser(header, channels_last=False):
 	return parse_example
 
 
-def get_splitter(split_row, channels_last=False):
-	def split_features(features, labels):
-		if channels_last:
-			# time series features, spectrogram features, labels
-			return features[:split_row, :, :], features[split_row:, :, :], labels
-		else:
-			# time series features, spectrogram features, labels
-			return features[:, :split_row, :], features[:, split_row:, :], labels
-	return split_features
+def rms_normalize(features, labels):
+	features_rms = tf.sqrt(tf.reduce_mean(tf.square(features)))
+	features = features / features_rms
 
-
-def rms_normalize(*args):
-	# don't include the last element, which should be the labels
-	feature_arrays = args[:-1]
-
-	def rms_normalize_example(features):
-		features_rms = tf.sqrt(tf.reduce_mean(tf.square(features)))
-		return features / features_rms
-
-	return list(map(rms_normalize_example, feature_arrays)) + list(args[-1:])
+	return features, labels
 
 
 def get_file_interleaver(header):
@@ -66,7 +51,7 @@ def from_filenames(filenames, channels_last=False):
 
 	dataset = filenames_dataset.interleave(get_file_interleaver(header), cycle_length=num_files, block_length=1)
 	dataset = dataset.map(get_example_parser(header, channels_last), num_parallel_calls=8).prefetch(30000)
-	dataset = dataset.map(get_splitter(1, channels_last)).map(rms_normalize)
+	dataset = dataset.map(rms_normalize)
 	return dataset
 
 
