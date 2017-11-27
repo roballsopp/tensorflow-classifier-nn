@@ -9,30 +9,20 @@ def normalize(signal):
 	return (signal - mean) / range
 
 class ExampleBuilder:
-	def __init__(self, wav_file, markers, feature_width, fft_size, marker_offset=0, with_timeseries=True):
-		self._fft_size = fft_size
+	def __init__(self, wav_file, markers, feature_width, signal_offset, marker_offset=0, with_timeseries=True):
+		self._signal_offset = signal_offset
 
 		signal = wav_file.get_chan(0)
 
 		# push signal back by length of fft to make sure the true start of events is in view when slices corresponding to markers are taken
-		padded_signal = np.pad(signal, [[fft_size, 0]], mode='constant')
+		padded_signal = np.pad(signal, [[signal_offset, 0]], mode='constant')
 
-		logging.info('Creating spectrogram...')
-		spec = spectrogram(padded_signal, size=fft_size, sample_rate=wav_file.sample_rate)
+		trimmed_len = len(padded_signal) + 1 - signal_offset
+		trimmed_signal = padded_signal[:trimmed_len]
+		trimmed_signal = normalize(trimmed_signal)
+		trimmed_signal.shape = (1, -1)
 
-		spec = normalize(spec)
-
-		logging.info('Spectrogram complete!')
-
-		if with_timeseries:
-			trimmed_len = len(padded_signal) + 1 - fft_size
-			trimmed_signal = padded_signal[:trimmed_len]
-			trimmed_signal = normalize(trimmed_signal)
-			trimmed_signal.shape = (1, -1)
-
-			self._feature_buffer = np.concatenate([trimmed_signal, spec])
-		else:
-			self._feature_buffer = spec
+		self._feature_buffer = trimmed_signal
 
 		positive_markers = markers.get_sample_pos_list(wav_file.sample_rate)
 		negative_markers = Markers.generate_negative_markers(positive_markers, min_distance_from_positive_markers=25)
@@ -41,7 +31,8 @@ class ExampleBuilder:
 
 		# number of samples to use for each training example
 		self._feature_width = feature_width
-		self._feature_height = self._feature_buffer.shape[0]
+		self._feature_height = 1
+
 		self._label_width = int(1)
 		self._num_examples = len(self._markers_list)
 		self._label_offset = marker_offset
