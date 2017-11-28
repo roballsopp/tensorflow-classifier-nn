@@ -3,6 +3,16 @@ import tensorflow as tf
 def swish(x):
 	return x * tf.nn.sigmoid(x)
 
+def get_l2_regularization(lam=0.0):
+	weights_list = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='dual_model/weights')
+
+	total_l2 = tf.constant(0, dtype=tf.float32)
+
+	for weights in weights_list:
+		total_l2 += tf.nn.l2_loss(weights)
+
+	return lam * total_l2
+
 def conv1d_bn(inputs, name, training=True, reuse=False, data_format='channels_last', **kwargs):
 	with tf.variable_scope('weights'):
 		conv_out = tf.layers.conv1d(inputs, **kwargs, data_format=data_format, reuse=reuse, name=name)
@@ -148,10 +158,9 @@ class Model:
 	def forward_prop(self):
 		return tf.nn.sigmoid(self._raw_outputs)
 
-	def loss(self, correct_labels, positive_weight=1600):
+	def loss(self, correct_labels, lam=0.001):
 		batch_size = tf.cast(tf.shape(correct_labels)[0], tf.float32)
 
-		negative_mask = tf.abs(correct_labels - 1)
-		weights = (correct_labels * positive_weight) + negative_mask
+		# l2 = get_l2_regularization(lam)
 
 		return tf.losses.sigmoid_cross_entropy(correct_labels, logits=self._raw_outputs, reduction=tf.losses.Reduction.SUM) / batch_size
