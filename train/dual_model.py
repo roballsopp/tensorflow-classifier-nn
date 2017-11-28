@@ -4,13 +4,15 @@ def swish(x):
 	return x * tf.nn.sigmoid(x)
 
 def conv1d_bn(inputs, name, training=True, reuse=False, data_format='channels_last', **kwargs):
-	conv_out = tf.layers.conv1d(inputs, **kwargs, data_format=data_format, reuse=reuse, name=name)
+	with tf.variable_scope('weights'):
+		conv_out = tf.layers.conv1d(inputs, **kwargs, data_format=data_format, reuse=reuse, name=name)
 
 	example_maxes = tf.reduce_max(tf.abs(conv_out), axis=[1, 2])
 	return conv_out / tf.reshape(example_maxes, [-1, 1, 1])
 
 def conv2d_bn(inputs, name, training=True, reuse=False, data_format='channels_last', **kwargs):
-	conv_out = tf.layers.conv2d(inputs, **kwargs, data_format=data_format, reuse=reuse, name=name)
+	with tf.variable_scope('weights'):
+		conv_out = tf.layers.conv2d(inputs, **kwargs, data_format=data_format, reuse=reuse, name=name)
 
 	example_maxes = tf.reduce_max(tf.abs(conv_out), axis=[1, 2, 3])
 	return conv_out / tf.reshape(example_maxes, [-1, 1, 1, 1])
