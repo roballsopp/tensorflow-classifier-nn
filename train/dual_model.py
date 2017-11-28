@@ -31,11 +31,11 @@ weights_init_seed = 5
 activation = swish
 
 def time_series_layers(inputs, training, reuse, data_format='channels_last'):
-	inputs = conv1d_bn(
+	inputs = conv2d_bn(
 		inputs,
-		filters=32,
-		kernel_size=8,
-		strides=1,
+		filters=512,
+		kernel_size=(1, 32),
+		strides=(1, 1),
 		kernel_initializer=tf.contrib.layers.xavier_initializer(seed=weights_init_seed),
 		data_format=data_format,
 		activation=activation,
@@ -44,11 +44,11 @@ def time_series_layers(inputs, training, reuse, data_format='channels_last'):
 		training=training
 	)
 
-	inputs = conv1d_bn(
+	inputs = conv2d_bn(
 		inputs,
-		filters=32,
-		kernel_size=32,
-		strides=1,
+		filters=64,
+		kernel_size=(1, 32),
+		strides=(1, 1),
 		kernel_initializer=tf.contrib.layers.xavier_initializer(seed=weights_init_seed),
 		data_format=data_format,
 		activation=activation,
@@ -57,11 +57,11 @@ def time_series_layers(inputs, training, reuse, data_format='channels_last'):
 		training=training
 	)
 
-	inputs = conv1d_bn(
+	inputs = conv2d_bn(
 		inputs,
-		filters=64,
-		kernel_size=218,
-		strides=1,
+		filters=512,
+		kernel_size=(1, 450),
+		strides=(1, 1),
 		kernel_initializer=tf.contrib.layers.xavier_initializer(seed=weights_init_seed),
 		data_format=data_format,
 		activation=activation,
@@ -71,6 +71,7 @@ def time_series_layers(inputs, training, reuse, data_format='channels_last'):
 	)
 
 	return inputs
+
 
 def spectrogram_layers(inputs, training, reuse, data_format='channels_last'):
 	inputs = conv2d_bn(
