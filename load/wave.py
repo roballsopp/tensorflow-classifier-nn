@@ -27,7 +27,7 @@ class Wave:
 		float_to_int = 2 ** (bit_depth - 1)
 		data_int = np.rint(self._data[0] * float_to_int).astype(np.int16)
 
-		with wave.open(filepath, 'wb') as file:
+		with wave.open(filepath, mode='wb') as file:
 			file.setnchannels(1)
 			file.setsampwidth(int(bit_depth / 8))
 			file.setframerate(self._sample_rate)
