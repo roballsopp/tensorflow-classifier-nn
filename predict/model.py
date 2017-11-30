@@ -22,6 +22,20 @@ def transient_filter_initializer(shape, dtype=tf.float32, partition_info=None):
 
 	return var
 
+def peak_filter_initializer(shape, dtype=tf.float32, partition_info=None):
+	time_len, band_width, chan_in, num_filters = shape
+	lobe_size = round(time_len / 2)
+
+	var = tf.convert_to_tensor(([1] * lobe_size) + ([-1] * lobe_size), dtype=dtype)
+	# jut copy the filter for each requested band, channel, and filter for now
+	var = tf.tile(var, multiples=[band_width * chan_in * num_filters])
+
+	# reshape backwards so we end up with the values in the right dims, then transpose to fit correct filter dims
+	var = tf.reshape(var, [num_filters, chan_in, band_width, time_len])
+	var = tf.transpose(var)
+
+	return var
+
 def create_layer(inputs, size, channels_last=True, name=''):
 	pad_amt = round(size / 2)
 	num_bands = inputs.shape[2].value if channels_last else inputs.shape[3].value
@@ -81,10 +95,7 @@ def spectrogram_model(inputs, channels_last=True):
 	inputs = rms_normalize_per_band(inputs, channels_last=channels_last)
 	outputs = create_layer(inputs, 512, channels_last=channels_last, name='spectrogram')
 
-	# remove "batch" dim, and band dim
-	inputs = tf.squeeze(outputs, axis=[0, 2])
-	# reshape back into channels first, TODO: might need to be a transpose with multi-channel
-	return tf.reshape(inputs, [1, -1])[:, :-half_fft_size]
+	return outputs[:, :-half_fft_size, :, :]
 
 
 def magnitude_model(inputs, channels_last=True):
@@ -98,26 +109,63 @@ def magnitude_model(inputs, channels_last=True):
 
 	outputs = create_layer(inputs, 1024, channels_last=channels_last, name='magnitude')
 
-	# remove "batch" dim, and band dim
-	inputs = tf.squeeze(outputs, axis=[0, 2])
-	# reshape back into channels first, TODO: might need to be a transpose with multi-channel
-	return tf.reshape(inputs, [1, -1])
+	return outputs
+
+
+def find_peaks(inputs, channels_last=True):
+	data_format = 'channels_last' if channels_last else 'channels_first'
+
+	peak_filter = tf.layers.conv2d(
+		inputs,
+		filters=1,
+		kernel_size=[2, 1],
+		strides=[1, 1],
+		use_bias=False,
+		padding='same',
+		data_format=data_format,
+		kernel_initializer=peak_filter_initializer,
+		trainable=False,
+		name='peak_filter_1',
+	)
+
+	peaks = tf.minimum(peak_filter / tf.abs(peak_filter), 0)
+
+	peaks = tf.layers.conv2d(
+		peaks,
+		filters=1,
+		kernel_size=[2, 1],
+		strides=[1, 1],
+		use_bias=False,
+		padding='same',
+		data_format=data_format,
+		kernel_initializer=peak_filter_initializer,
+		trainable=False,
+		name='peak_filter_2',
+	)
+
+	peaks = tf.maximum(peaks * -1, 0)
+
+	return peaks
+
 
 class Model:
 	def __init__(self, inputs, channels_last=True):
 		spectrogram_out = spectrogram_model(inputs, channels_last=channels_last)
 		magnitude_out = magnitude_model(inputs, channels_last=channels_last)
-		self._raw_outputs = tf.nn.relu(rms_normalize(spectrogram_out) + rms_normalize(magnitude_out))
 
-	def get_savable_vars(self):
-		return tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='dual_model')
+		summed_out = tf.nn.relu(rms_normalize(spectrogram_out) + rms_normalize(magnitude_out))
+
+		peaks = find_peaks(summed_out, channels_last=channels_last)
+
+		final_out = summed_out * peaks
+
+		# remove "batch" dim, and band dim
+		final_out = tf.squeeze(final_out, axis=[0, 2])
+		# transpose back into channels first
+		self._raw_outputs = tf.transpose(final_out)
 
 	def get_raw(self):
 		return self._raw_outputs
 
 	def forward_prop(self):
 		return tf.nn.sigmoid(self._raw_outputs)
-
-	def loss(self, correct_labels):
-		batch_size = tf.cast(tf.shape(correct_labels)[0], tf.float32)
-		return tf.losses.sigmoid_cross_entropy(correct_labels, logits=self._raw_outputs, reduction=tf.losses.Reduction.SUM) / batch_size
