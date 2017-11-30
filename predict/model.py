@@ -22,8 +22,9 @@ def transient_filter_initializer(shape, dtype=tf.float32, partition_info=None):
 
 	return var
 
-def create_layer(inputs, size, channels_last=True):
+def create_layer(inputs, size, channels_last=True, name=''):
 	pad_amt = round(size / 2)
+	num_bands = inputs.shape[2].value if channels_last else inputs.shape[3].value
 
 	if channels_last:
 		inputs = tf.pad(inputs, [[0, 0], [pad_amt, pad_amt], [0, 0], [0, 0]], "CONSTANT")
@@ -35,21 +36,15 @@ def create_layer(inputs, size, channels_last=True):
 	inputs = tf.layers.conv2d(
 		inputs,
 		filters=1,
-		kernel_size=[size, 33],
+		kernel_size=[size, num_bands],
 		strides=[1, 1],
-		activation=tf.nn.relu,
+		# activation=tf.nn.relu,
 		use_bias=False,
 		data_format=data_format,
 		kernel_initializer=transient_filter_initializer,
 		trainable=False,
-		name='layer_1',
+		name='layer_1_' + name,
 	)
-
-	print(inputs.get_shape().as_list())
-
-	# inputs = inputs[:, :, :-pad_amt, :]
-	#
-	print(inputs.get_shape().as_list())
 
 	return inputs
 
@@ -62,27 +57,57 @@ def rms_normalize_per_band(spectrogram, channels_last=True):
 	return spectrogram / den
 
 
+def rms_normalize(inputs):
+	rms = tf.sqrt(tf.reduce_mean(tf.square(inputs)))
+	return inputs / rms
+
+
+def spectrogram_model(inputs, channels_last=True):
+	fft_size = 32
+	half_fft_size = int(fft_size / 2)
+	num_output_bands = int(half_fft_size + 1)
+
+	inputs = tf.pad(inputs, [[0, 0], [half_fft_size, 0]], "CONSTANT")
+
+	stfts = tf.contrib.signal.stft(inputs, frame_length=fft_size, frame_step=1, fft_length=fft_size, pad_end=True)
+	inputs = tf.abs(stfts)
+
+	if channels_last:
+		inputs = tf.reshape(inputs, [-1, num_output_bands, 1])
+
+	# create the "batch" dim, even though there is only one example
+	inputs = tf.expand_dims(inputs, axis=0)
+
+	inputs = rms_normalize_per_band(inputs, channels_last=channels_last)
+	outputs = create_layer(inputs, 500, channels_last=channels_last, name='spectrogram')
+
+	# remove "batch" dim, and band dim
+	inputs = tf.squeeze(outputs, axis=[0, 2])
+	# reshape back into channels first, TODO: might need to be a transpose with multi-channel
+	return tf.reshape(inputs, [1, -1])[:, :-half_fft_size]
+
+
+def magnitude_model(inputs, channels_last=True):
+	inputs = tf.abs(inputs)
+
+	if channels_last:
+		inputs = tf.reshape(inputs, [-1, 1, 1])
+
+	# create the "batch" dim, even though there is only one example
+	inputs = tf.expand_dims(inputs, axis=0)
+
+	outputs = create_layer(inputs, 500, channels_last=channels_last, name='magnitude')
+
+	# remove "batch" dim, and band dim
+	inputs = tf.squeeze(outputs, axis=[0, 2])
+	# reshape back into channels first, TODO: might need to be a transpose with multi-channel
+	return tf.reshape(inputs, [1, -1])
+
 class Model:
 	def __init__(self, inputs, channels_last=True):
-		fft_size = 64
-		num_output_bands = int((fft_size / 2) + 1)
-
-		stfts = tf.contrib.signal.stft(inputs, frame_length=fft_size, frame_step=1, fft_length=fft_size, pad_end=True)
-		inputs = tf.abs(stfts)
-
-		if channels_last:
-			inputs = tf.reshape(inputs, [-1, num_output_bands, 1])
-
-		# create the "batch" dim, even though there is only one example
-		inputs = tf.expand_dims(inputs, axis=0)
-
-		inputs = rms_normalize_per_band(inputs, channels_last=channels_last)
-		outputs = create_layer(inputs, 500, channels_last=channels_last)
-
-		# remove "batch" dim, and band dim
-		inputs = tf.squeeze(outputs, axis=[0, 2])
-		# reshape back into channels first, TODO: might need to be a transpose with multi-channel
-		self._raw_outputs = tf.reshape(inputs, [1, -1])
+		spectrogram_out = spectrogram_model(inputs, channels_last=channels_last)
+		magnitude_out = magnitude_model(inputs, channels_last=channels_last)
+		self._raw_outputs = tf.nn.relu(rms_normalize(spectrogram_out) + rms_normalize(magnitude_out))
 
 	def get_savable_vars(self):
 		return tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='dual_model')
