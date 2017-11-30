@@ -79,7 +79,7 @@ def spectrogram_model(inputs, channels_last=True):
 	inputs = tf.expand_dims(inputs, axis=0)
 
 	inputs = rms_normalize_per_band(inputs, channels_last=channels_last)
-	outputs = create_layer(inputs, 500, channels_last=channels_last, name='spectrogram')
+	outputs = create_layer(inputs, 512, channels_last=channels_last, name='spectrogram')
 
 	# remove "batch" dim, and band dim
 	inputs = tf.squeeze(outputs, axis=[0, 2])
@@ -96,7 +96,7 @@ def magnitude_model(inputs, channels_last=True):
 	# create the "batch" dim, even though there is only one example
 	inputs = tf.expand_dims(inputs, axis=0)
 
-	outputs = create_layer(inputs, 500, channels_last=channels_last, name='magnitude')
+	outputs = create_layer(inputs, 1024, channels_last=channels_last, name='magnitude')
 
 	# remove "batch" dim, and band dim
 	inputs = tf.squeeze(outputs, axis=[0, 2])
