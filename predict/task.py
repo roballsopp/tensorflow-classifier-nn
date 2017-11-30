@@ -1,80 +1,47 @@
 import logging
-import glob
 import time
 import os
 from argparse import ArgumentParser
 
-import numpy as np
 import tensorflow as tf
 
-import load
+from load import Wave
 from predict.model import Model
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
 parser = ArgumentParser()
 
-parser.add_argument('--input-files', help="Specify input file path", required=True)
+parser.add_argument('--input-file', help="Specify input file path", required=True)
 parser.add_argument('--job-dir', type=str, default='./tmp/wav_out')
 parser.add_argument('--job-name', type=str, default=time.strftime('%Y-%m-%d_%H-%M-%S'))
 
 args = parser.parse_args()
 
-input_glob = args.input_files
+input_filepath = args.input_file
 job_dir = args.job_dir
 job_name = args.job_name
 
-logging.info('Loading input files matching ' + input_glob + '...')
-input_filenames = glob.glob(input_glob, recursive=True)
-logging.info('Found ' + str(len(input_filenames)) + ' files.')
+logging.info('Loading input file ' + input_filepath + '...')
+wav = Wave.from_file(input_filepath)
 
-def get_example_creator(example_length, channels_last=False):
-	signal_axis = 2 if channels_last else 3
-
-	def create_examples(features, labels):
-		features = tf.contrib.signal.frame(
-			features,
-			frame_length=example_length,
-			frame_step=example_length,
-			pad_end=True,
-			axis=signal_axis,
-		)
-
-		labels = tf.contrib.signal.frame(
-			labels,
-			frame_length=example_length,
-			frame_step=example_length,
-			pad_end=True,
-			axis=signal_axis,
-		)
-
-		return features, labels
-	return create_examples
-
-def groom_out(signal):
+def normalize_out(signal):
 	sig_max = tf.reduce_max(tf.abs(signal))
-	return tf.squeeze(signal / sig_max, axis=[1, 3])
+	return signal / sig_max
 
-input_dataset = load.from_filenames(input_filenames)
-# input_dataset = input_dataset.flat_map(get_example_creator(50000, channels_last=True))
-inputs, labels = input_dataset.batch(1).make_one_shot_iterator().get_next()
-
-inputs = inputs[:, :, :, :500000]
-labels = labels[:, :500000]
+inputs = wav.get_data()
+inputs = tf.convert_to_tensor(inputs[:, :500000], dtype=tf.float32)
 
 model = Model(inputs)
 hypothesis = model.get_raw()
-# cost = model.loss(labels)
 
 init = tf.global_variables_initializer()
 
 with tf.Session(config=tf.ConfigProto(log_device_placement=False)) as sess:
 	sess.run(init)
-	output = sess.run(groom_out(hypothesis) * 0.95)
+	output = sess.run(normalize_out(hypothesis) * 0.95)
 
-	print(output.shape)
-
-	wav_out = load.Wave(output, sample_rate=11025)
+	wav_out = Wave(output, sample_rate=wav.sample_rate)
 	wav_out.to_file(os.path.join(job_dir, job_name + '_out.wav'))
 
 

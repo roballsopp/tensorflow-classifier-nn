@@ -12,6 +12,9 @@ class Wave:
 		self._data = data.astype(np.float32)
 		self._sample_rate = sample_rate
 
+	def get_data(self):
+		return self._data
+
 	def get_chan(self, chan):
 		return self._data[chan]
 
