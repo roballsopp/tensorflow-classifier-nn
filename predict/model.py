@@ -168,4 +168,4 @@ class Model:
 		return self._raw_outputs
 
 	def forward_prop(self):
-		return tf.nn.sigmoid(self._raw_outputs)
+		return tf.round(tf.nn.tanh(self._raw_outputs))

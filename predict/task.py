@@ -33,7 +33,7 @@ inputs = wav.get_data()
 inputs = tf.convert_to_tensor(inputs[:, :500000], dtype=tf.float32)
 
 model = Model(inputs)
-hypothesis = model.get_raw()
+hypothesis = model.forward_prop()
 
 init = tf.global_variables_initializer()
 
