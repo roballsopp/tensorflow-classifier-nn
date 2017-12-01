@@ -27,7 +27,7 @@ class Wave:
 		return self._sample_rate
 
 	def to_file(self, filepath, bit_depth=16):
-		float_to_int = 2 ** (bit_depth - 1)
+		float_to_int = (2 ** (bit_depth - 1)) - 1
 		data_int = np.rint(self._data[0] * float_to_int).astype(np.int16)
 
 		with wave.open(filepath, mode='wb') as file:
