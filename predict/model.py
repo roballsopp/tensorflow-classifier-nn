@@ -93,6 +93,30 @@ def find_peaks(inputs, channels_last=True):
 	return peaks
 
 
+def widen_labels(inputs, channels_last=True):
+	if channels_last:
+		inputs = tf.reshape(inputs, [-1, 1, 1])
+	else:
+		inputs = tf.reshape(inputs, [1, -1, 1])
+
+	# create the "batch" dim, even though there is only one example
+	inputs = tf.expand_dims(inputs, axis=0)
+
+	outputs = tf.nn.convolution(
+		inputs,
+		filter=nn.blur_kernel([50, 1, 1]),
+		padding='SAME',
+		data_format=get_data_format_string(channels_last),
+		name='widening_filter',
+	)
+
+	# remove "batch" dim, and band dim
+	outputs = tf.squeeze(outputs, axis=[0, 2])
+	# transpose back into channels first
+	outputs = tf.transpose(outputs)
+
+	return nn.normalize(outputs)
+
 class Model:
 	def __init__(self, inputs, channels_last=True):
 		spectrogram_out = spectrogram_model(inputs, channels_last=channels_last)
@@ -114,3 +138,13 @@ class Model:
 
 	def forward_prop(self):
 		return tf.round(tf.nn.tanh(self._raw_outputs))
+
+	@staticmethod
+	def cost(predictions, labels):
+		predictions = widen_labels(predictions)
+		labels = widen_labels(labels)
+
+		labels = tf.Print(labels, [tf.reduce_any(tf.is_nan(tf.square(labels - predictions)))], summarize=100)
+
+		return tf.sqrt(tf.reduce_mean(tf.square(labels - predictions)))
+
