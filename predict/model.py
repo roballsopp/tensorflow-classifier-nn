@@ -21,7 +21,7 @@ def create_layer(inputs, size, channels_last=True, name=''):
 
 	inputs = tf.nn.convolution(
 		inputs,
-		filter=nn.transient_kernel([size, num_bands, 1]),
+		filter=nn.transient_kernel([size, num_bands, 1, 1]),
 		padding='VALID',
 		data_format=get_data_format_string(channels_last),
 		name='layer_1_' + name
@@ -71,7 +71,7 @@ def find_peaks(inputs, channels_last=True):
 
 	peak_filter = tf.nn.convolution(
 		inputs,
-		filter=nn.peak_kernel([2, 1, 1]),
+		filter=nn.peak_kernel([2, 1, 1, 1]),
 		padding='SAME',
 		data_format=data_format,
 		name='peak_filter_1',
@@ -82,7 +82,7 @@ def find_peaks(inputs, channels_last=True):
 
 	peaks = tf.nn.convolution(
 		peaks,
-		filter=nn.peak_kernel([2, 1, 1]),
+		filter=nn.peak_kernel([2, 1, 1, 1]),
 		padding='SAME',
 		data_format=data_format,
 		name='peak_filter_2',
@@ -104,7 +104,7 @@ def widen_labels(inputs, channels_last=True):
 
 	outputs = tf.nn.convolution(
 		inputs,
-		filter=nn.blur_kernel([50, 1, 1]),
+		filter=nn.blur_kernel([50, 1, 1, 1]),
 		padding='SAME',
 		data_format=get_data_format_string(channels_last),
 		name='widening_filter',

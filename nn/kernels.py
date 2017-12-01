@@ -9,11 +9,11 @@ def get_exp_kernel(lobe_size, sharpness=2.0, dtype=tf.float32):
 
 
 def fill_shape_with_kernel(shape, kernel):
-	kernel_height, kernel_width, channels = shape
+	kernel_height, kernel_width, channels_in, channnels_out = shape
 	# just copy the kernel for each requested band, channel, and kernel
-	kernel = tf.tile(kernel, multiples=[kernel_width * channels])
+	kernel = tf.tile(kernel, multiples=[kernel_width * channels_in * channnels_out])
 	# reshape backwards so we end up with the values in the right dims, then transpose to fit correct kernel dims
-	kernel = tf.reshape(kernel, [channels, channels, kernel_width, kernel_height])
+	kernel = tf.reshape(kernel, [channnels_out, channels_in, kernel_width, kernel_height])
 	kernel = tf.transpose(kernel)
 
 	return kernel
