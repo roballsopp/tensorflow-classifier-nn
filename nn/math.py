@@ -11,3 +11,8 @@ def rms_normalize_per_band(spectrogram, channels_last=True):
 def rms_normalize(inputs):
 	rms = tf.sqrt(tf.reduce_mean(tf.square(inputs)))
 	return inputs / rms
+
+
+def normalize(inputs):
+	maximum = tf.reduce_max(tf.abs(inputs))
+	return inputs / maximum
