@@ -6,10 +6,6 @@ def get_data_format_string(channels_last):
 	return 'NHWC' if channels_last else 'NCHW'
 
 
-def fix_divide_by_zero(inputs):
-	return tf.where(tf.is_nan(inputs), x=tf.zeros(inputs.shape, dtype=inputs.dtype), y=inputs)
-
-
 def create_layer(inputs, size, channels_last=True, name=''):
 	pad_amt = round(size / 2)
 	num_bands = inputs.shape[2].value if channels_last else inputs.shape[3].value
@@ -66,33 +62,6 @@ def magnitude_model(inputs, channels_last=True):
 	return outputs
 
 
-def find_peaks(inputs, channels_last=True):
-	data_format = get_data_format_string(channels_last)
-
-	peak_filter = tf.nn.convolution(
-		inputs,
-		filter=nn.peak_kernel([2, 1, 1, 1]),
-		padding='SAME',
-		data_format=data_format,
-		name='peak_filter_1',
-	)
-
-	peaks = peak_filter / tf.abs(peak_filter)
-	peaks = tf.minimum(fix_divide_by_zero(peaks), 0)
-
-	peaks = tf.nn.convolution(
-		peaks,
-		filter=nn.peak_kernel([2, 1, 1, 1]),
-		padding='SAME',
-		data_format=data_format,
-		name='peak_filter_2',
-	)
-
-	peaks = tf.maximum(peaks * -1, 0)
-
-	return peaks
-
-
 def widen_labels(inputs, channels_last=True):
 	if channels_last:
 		inputs = tf.reshape(inputs, [-1, 1, 1])
@@ -124,7 +93,7 @@ class Model:
 
 		summed_out = tf.nn.relu(nn.rms_normalize(spectrogram_out) + nn.rms_normalize(magnitude_out))
 
-		peaks = find_peaks(summed_out, channels_last=channels_last)
+		peaks = nn.find_peaks(summed_out, channels_last=channels_last)
 
 		final_out = summed_out * peaks
 

@@ -16,3 +16,7 @@ def rms_normalize(inputs):
 def normalize(inputs):
 	maximum = tf.reduce_max(tf.abs(inputs))
 	return inputs / maximum
+
+
+def fix_divide_by_zero(inputs):
+	return tf.where(tf.is_nan(inputs), x=tf.zeros(inputs.shape, dtype=inputs.dtype), y=inputs)
