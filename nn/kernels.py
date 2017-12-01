@@ -20,7 +20,7 @@ def fill_shape_with_kernel(shape, kernel):
 
 def transient_kernel(shape, dtype=tf.float32):
 	lobe_size = round(shape[0] / 2)
-	kernel = get_exp_kernel(lobe_size, sharpness=0.0, dtype=dtype)
+	kernel = get_exp_kernel(lobe_size, sharpness=1.0, dtype=dtype)
 	kernel = fill_shape_with_kernel(shape, kernel)
 
 	return kernel

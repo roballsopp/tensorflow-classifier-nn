@@ -6,6 +6,10 @@ def get_data_format_string(channels_last):
 	return 'NHWC' if channels_last else 'NCHW'
 
 
+def fix_divide_by_zero(inputs):
+	return tf.where(tf.is_nan(inputs), x=tf.zeros(inputs.shape, dtype=inputs.dtype), y=inputs)
+
+
 def create_layer(inputs, size, channels_last=True, name=''):
 	pad_amt = round(size / 2)
 	num_bands = inputs.shape[2].value if channels_last else inputs.shape[3].value
@@ -23,7 +27,7 @@ def create_layer(inputs, size, channels_last=True, name=''):
 		name='layer_1_' + name
 	)
 
-	return inputs
+	return inputs[:, :-1, :, :]
 
 
 def spectrogram_model(inputs, channels_last=True):
@@ -34,7 +38,7 @@ def spectrogram_model(inputs, channels_last=True):
 	inputs = tf.pad(inputs, [[0, 0], [half_fft_size, 0]], "CONSTANT")
 
 	stfts = tf.contrib.signal.stft(inputs, frame_length=fft_size, frame_step=1, fft_length=fft_size, pad_end=True)
-	inputs = tf.abs(stfts)
+	inputs = tf.abs(stfts)[:, :-half_fft_size, :]
 
 	if channels_last:
 		inputs = tf.reshape(inputs, [-1, num_output_bands, 1])
@@ -45,7 +49,7 @@ def spectrogram_model(inputs, channels_last=True):
 	inputs = nn.rms_normalize_per_band(inputs, channels_last=channels_last)
 	outputs = create_layer(inputs, 512, channels_last=channels_last, name='spectrogram')
 
-	return outputs[:, :-half_fft_size, :, :]
+	return outputs
 
 
 def magnitude_model(inputs, channels_last=True):
@@ -64,7 +68,7 @@ def magnitude_model(inputs, channels_last=True):
 
 def find_peaks(inputs, channels_last=True):
 	data_format = get_data_format_string(channels_last)
-	
+
 	peak_filter = tf.nn.convolution(
 		inputs,
 		filter=nn.peak_kernel([2, 1, 1]),
@@ -73,7 +77,8 @@ def find_peaks(inputs, channels_last=True):
 		name='peak_filter_1',
 	)
 
-	peaks = tf.minimum(peak_filter / tf.abs(peak_filter), 0)
+	peaks = peak_filter / tf.abs(peak_filter)
+	peaks = tf.minimum(fix_divide_by_zero(peaks), 0)
 
 	peaks = tf.nn.convolution(
 		peaks,
