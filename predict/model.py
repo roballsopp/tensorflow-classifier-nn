@@ -7,34 +7,51 @@ def get_data_format_string(channels_last):
 
 
 def create_layer(inputs, size, channels_last=True, name=''):
-	pad_amt = round(size / 2)
-	num_bands = inputs.shape[2].value if channels_last else inputs.shape[3].value
+	band_axis = 2 if channels_last else 3
 
-	if channels_last:
-		inputs = tf.pad(inputs, [[0, 0], [pad_amt, pad_amt], [0, 0], [0, 0]], "CONSTANT")
-	else:
-		inputs = tf.pad(inputs, [[0, 0], [0, 0], [pad_amt, pad_amt], [0, 0]], "CONSTANT")
+	inputs = tf.pow(inputs, 0.6)
 
 	inputs = tf.nn.convolution(
 		inputs,
-		filter=nn.transient_kernel([size, num_bands, 1, 1]),
-		padding='VALID',
+		filter=nn.transient_kernel([2, 1, 1, 1]),
+		padding='SAME',
 		data_format=get_data_format_string(channels_last),
 		name='layer_1_' + name
 	)
 
-	return inputs[:, :-1, :, :]
+	inputs = tf.expand_dims(tf.reduce_sum(tf.abs(inputs), axis=[band_axis]), axis=band_axis)
+
+	inputs = tf.nn.convolution(
+		inputs,
+		filter=nn.transient_kernel([size, 1, 1, 1]),
+		padding='SAME',
+		data_format=get_data_format_string(channels_last),
+		name='layer_2_' + name
+	)
+
+	smoothing_size = 128
+
+	inputs = tf.pad(inputs, [[0, 0], [smoothing_size, 0], [0, 0], [0, 0]], 'CONSTANT')
+
+	inputs = tf.layers.average_pooling2d(
+		inputs,
+		pool_size=[smoothing_size, 1],
+		strides=[1, 1],
+		padding='same'
+	)[:, smoothing_size:, :, :]
+
+	return inputs
 
 
 def spectrogram_model(inputs, channels_last=True):
-	fft_size = 32
-	half_fft_size = int(fft_size / 2)
-	num_output_bands = int(half_fft_size + 1)
+	fft_size = 64
+	shift_amt = fft_size - 1
+	num_output_bands = int((fft_size / 2) + 1)
 
-	inputs = tf.pad(inputs, [[0, 0], [half_fft_size, 0]], "CONSTANT")
+	inputs = tf.pad(inputs, [[0, 0], [shift_amt, 0]], 'CONSTANT')
 
 	stfts = tf.contrib.signal.stft(inputs, frame_length=fft_size, frame_step=1, fft_length=fft_size, pad_end=True)
-	inputs = tf.abs(stfts)[:, :-half_fft_size, :]
+	inputs = tf.abs(stfts)
 
 	if channels_last:
 		inputs = tf.reshape(inputs, [-1, num_output_bands, 1])
@@ -42,24 +59,10 @@ def spectrogram_model(inputs, channels_last=True):
 	# create the "batch" dim, even though there is only one example
 	inputs = tf.expand_dims(inputs, axis=0)
 
-	inputs = nn.rms_normalize_per_band(inputs, channels_last=channels_last)
-	outputs = create_layer(inputs, 512, channels_last=channels_last, name='spectrogram')
+	# inputs = nn.rms_normalize_per_band(inputs, channels_last=channels_last)
+	outputs = create_layer(inputs, 1024, channels_last=channels_last, name='spectrogram')
 
-	return outputs
-
-
-def magnitude_model(inputs, channels_last=True):
-	inputs = tf.abs(inputs)
-
-	if channels_last:
-		inputs = tf.reshape(inputs, [-1, 1, 1])
-
-	# create the "batch" dim, even though there is only one example
-	inputs = tf.expand_dims(inputs, axis=0)
-
-	outputs = create_layer(inputs, 1024, channels_last=channels_last, name='magnitude')
-
-	return outputs
+	return outputs[:, shift_amt:, :, :]
 
 
 def widen_labels(inputs, channels_last=True):
@@ -89,9 +92,8 @@ def widen_labels(inputs, channels_last=True):
 class Model:
 	def __init__(self, inputs, channels_last=True):
 		spectrogram_out = spectrogram_model(inputs, channels_last=channels_last)
-		magnitude_out = magnitude_model(inputs, channels_last=channels_last)
 
-		summed_out = tf.nn.relu(nn.rms_normalize(spectrogram_out) + nn.rms_normalize(magnitude_out))
+		summed_out = tf.nn.relu(nn.rms_normalize(spectrogram_out))
 
 		peaks = nn.find_peaks(summed_out, channels_last=channels_last)
 
@@ -112,8 +114,6 @@ class Model:
 	def cost(predictions, labels):
 		predictions = widen_labels(predictions)
 		labels = widen_labels(labels)
-
-		labels = tf.Print(labels, [tf.reduce_any(tf.is_nan(tf.square(labels - predictions)))], summarize=100)
 
 		return tf.sqrt(tf.reduce_mean(tf.square(labels - predictions)))
 
