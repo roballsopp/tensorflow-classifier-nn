@@ -44,17 +44,8 @@ def create_layer(inputs, size, channels_last=True, name=''):
 
 
 def spectrogram_model(inputs, channels_last=True):
-	fft_size = 64
-	shift_amt = fft_size - 1
-	num_output_bands = int((fft_size / 2) + 1)
-
-	inputs = tf.pad(inputs, [[0, 0], [shift_amt, 0]], 'CONSTANT')
-
-	stfts = tf.contrib.signal.stft(inputs, frame_length=fft_size, frame_step=1, fft_length=fft_size, pad_end=True)
+	stfts = nn.stft(inputs, fft_length=64, step=1, pad_end=True, channels_last=channels_last)
 	inputs = tf.abs(stfts)
-
-	if channels_last:
-		inputs = tf.reshape(inputs, [-1, num_output_bands, 1])
 
 	# create the "batch" dim, even though there is only one example
 	inputs = tf.expand_dims(inputs, axis=0)
@@ -62,7 +53,7 @@ def spectrogram_model(inputs, channels_last=True):
 	# inputs = nn.rms_normalize_per_band(inputs, channels_last=channels_last)
 	outputs = create_layer(inputs, 1024, channels_last=channels_last, name='spectrogram')
 
-	return outputs[:, shift_amt:, :, :]
+	return outputs
 
 
 def widen_labels(inputs, channels_last=True):
@@ -101,8 +92,8 @@ class Model:
 
 		# remove "batch" dim, and band dim
 		final_out = tf.squeeze(final_out, axis=[0, 2])
-		# transpose back into channels first
-		self._raw_outputs = tf.transpose(final_out)
+
+		self._raw_outputs = final_out
 
 	def get_raw(self):
 		return self._raw_outputs

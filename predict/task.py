@@ -30,12 +30,15 @@ wav = Wave.from_file(input_filepath)
 
 labels = Wave.from_file(label_filepath)
 labels = labels.get_data()
-labels = tf.convert_to_tensor(labels[:, :500000], dtype=tf.float32)
+labels = tf.convert_to_tensor(labels, dtype=tf.float32)
 
 inputs = wav.get_data()
-inputs = tf.convert_to_tensor(inputs[:, :500000], dtype=tf.float32)
+inputs = tf.convert_to_tensor(inputs, dtype=tf.float32)
 
-model = Model(inputs)
+inputs = tf.transpose(inputs)[:500000, :]
+labels = tf.transpose(labels)[:500000, :]
+
+model = Model(inputs, channels_last=True)
 predictions = model.forward_prop()
 cost = Model.cost(predictions, labels)
 
@@ -43,7 +46,7 @@ init = tf.global_variables_initializer()
 
 with tf.Session(config=tf.ConfigProto(log_device_placement=False)) as sess:
 	sess.run(init)
-	cost, output = sess.run([cost, nn.normalize(predictions)])
+	cost, output = sess.run([cost, tf.transpose(nn.normalize(predictions))])
 
 	print('Total Cost: ', cost)
 
