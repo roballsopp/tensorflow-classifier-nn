@@ -55,6 +55,12 @@ def widen_labels(inputs, channels_last=True):
 	# create the "batch" dim, even though there is only one example
 	inputs = tf.expand_dims(inputs, axis=0)
 
+def widen_labels(inputs, channels_last=True):
+	# create the "batch" dim, even though there is only one example
+	inputs = tf.expand_dims(inputs, axis=0)
+	# create the "width" dim, even though there is only height
+	inputs = tf.expand_dims(inputs, axis=2)
+
 	outputs = tf.nn.convolution(
 		inputs,
 		filter=nn.blur_kernel([50, 1, 1, 1]),
@@ -65,8 +71,6 @@ def widen_labels(inputs, channels_last=True):
 
 	# remove "batch" dim, and band dim
 	outputs = tf.squeeze(outputs, axis=[0, 2])
-	# transpose back into channels first
-	outputs = tf.transpose(outputs)
 
 	return nn.normalize(outputs)
 
@@ -92,9 +96,9 @@ class Model:
 		return tf.round(tf.nn.tanh(self._raw_outputs))
 
 	@staticmethod
-	def cost(predictions, labels):
-		predictions = widen_labels(predictions)
-		labels = widen_labels(labels)
+	def cost(predictions, labels, channels_last=True):
+		predictions = widen_labels(predictions, channels_last=channels_last)
+		labels = widen_labels(labels, channels_last=channels_last)
 
 		return tf.sqrt(tf.reduce_mean(tf.square(labels - predictions)))
 

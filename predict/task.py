@@ -40,7 +40,7 @@ labels = tf.transpose(labels)[:500000, :]
 
 model = Model(inputs, channels_last=True)
 predictions = model.forward_prop()
-cost = Model.cost(predictions, labels)
+cost = Model.cost(predictions, labels, channels_last=True)
 
 init = tf.global_variables_initializer()
 
