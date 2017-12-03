@@ -29,16 +29,6 @@ def create_layer(inputs, size, channels_last=True, name=''):
 		name='layer_2_' + name
 	)
 
-	smoothing_size = 128
-
-	inputs = tf.pad(inputs, [[0, 0], [smoothing_size, 0], [0, 0], [0, 0]], 'CONSTANT')
-
-	inputs = tf.layers.average_pooling2d(
-		inputs,
-		pool_size=[smoothing_size, 1],
-		strides=[1, 1],
-		padding='same'
-	)[:, smoothing_size:, :, :]
 
 	return inputs
 

@@ -30,3 +30,33 @@ def find_peaks(inputs, channels_last=True):
 	peaks = tf.maximum(peaks * -1, 0)
 
 	return peaks
+
+
+def smooth(inputs, size=128):
+	inputs = tf.layers.average_pooling2d(
+		inputs,
+		pool_size=[size, 1],
+		strides=[1, 1],
+		padding='same'
+	)
+
+	return inputs
+
+
+def maximize(inputs, size=128, channels_last=True):
+	if channels_last:
+		inputs = tf.pad(inputs, [[0, 0], [size, size - 1], [0, 0], [0, 0]], 'CONSTANT')
+	else:
+		inputs = tf.pad(inputs, [[0, 0], [0, 0], [size, size - 1], [0, 0]], 'CONSTANT')
+
+	inputs = tf.layers.max_pooling2d(
+		inputs,
+		pool_size=[size, 1],
+		strides=[1, 1],
+		padding='valid'
+	)
+
+	if channels_last:
+		return inputs[:, :-size, :, :]
+	else:
+		return inputs[:, :, :-size, :]
