@@ -7,7 +7,7 @@ import tensorflow as tf
 import nn
 
 from load import Wave
-from predict.model import Model
+from predict.model import magnitude_model as model, calc_cost
 from predict.avg_spectrograms import get_avg_response
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
@@ -42,9 +42,9 @@ avg_response = tf.transpose(avg_response, perm=[1, 2, 0])
 inputs = tf.transpose(inputs)[:500000, :]
 labels = tf.transpose(labels)[:500000, :]
 
-predictions = model.forward_prop()
-model = Model(inputs, avg_response, channels_last=True)
-cost = Model.cost(predictions, labels, channels_last=True)
+raw_outputs = model(inputs, channels_last=True)
+predictions = tf.round(tf.nn.tanh(raw_outputs))
+cost = calc_cost(predictions, labels, channels_last=True)
 
 init = tf.global_variables_initializer()
 
