@@ -51,10 +51,25 @@ def widen_labels(inputs, channels_last=True):
 		inputs = tf.reshape(inputs, [-1, 1, 1])
 	else:
 		inputs = tf.reshape(inputs, [1, -1, 1])
+def autocorrelation_model(inputs, signal_filter, channels_last=True):
+	stfts = nn.stft(inputs, fft_length=64, step=1, pad_end=True, channels_last=channels_last)
+	inputs = tf.abs(stfts)
 
 	# create the "batch" dim, even though there is only one example
 	inputs = tf.expand_dims(inputs, axis=0)
 
+	inputs = tf.pad(inputs, [[0, 0], [0, 127], [0, 0], [0, 0]], 'CONSTANT')
+
+	outputs = tf.nn.convolution(
+		inputs,
+		filter=tf.expand_dims(signal_filter, axis=3),
+		padding='VALID',
+		data_format=get_data_format_string(channels_last)
+	)
+
+	outputs = nn.smooth(outputs, size=128)
+
+	return outputs
 def widen_labels(inputs, channels_last=True):
 	# create the "batch" dim, even though there is only one example
 	inputs = tf.expand_dims(inputs, axis=0)
@@ -75,8 +90,10 @@ def widen_labels(inputs, channels_last=True):
 	return nn.normalize(outputs)
 
 class Model:
-	def __init__(self, inputs, channels_last=True):
 		spectrogram_out = spectrogram_model(inputs, channels_last=channels_last)
+	def __init__(self, inputs, avg_response, channels_last=True):
+		avg_magnitude = tf.abs(avg_response)
+		spectrogram_out = autocorrelation_model(inputs, avg_magnitude, channels_last=channels_last)
 
 		summed_out = tf.nn.relu(nn.rms_normalize(spectrogram_out))
 

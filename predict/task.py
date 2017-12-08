@@ -8,6 +8,7 @@ import nn
 
 from load import Wave
 from predict.model import Model
+from predict.avg_spectrograms import get_avg_response
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
@@ -35,11 +36,14 @@ labels = tf.convert_to_tensor(labels, dtype=tf.float32)
 inputs = wav.get_data()
 inputs = tf.convert_to_tensor(inputs, dtype=tf.float32)
 
+avg_response = get_avg_response(inputs, labels, spectrogram_size=128)
+
+avg_response = tf.transpose(avg_response, perm=[1, 2, 0])
 inputs = tf.transpose(inputs)[:500000, :]
 labels = tf.transpose(labels)[:500000, :]
 
-model = Model(inputs, channels_last=True)
 predictions = model.forward_prop()
+model = Model(inputs, avg_response, channels_last=True)
 cost = Model.cost(predictions, labels, channels_last=True)
 
 init = tf.global_variables_initializer()
