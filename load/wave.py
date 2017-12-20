@@ -58,7 +58,8 @@ class Wave:
 		dt = dt.newbyteorder('L')
 
 		data = np.frombuffer(buf, dtype=dt)
-		# TODO: verify with two channels
-		data.shape = (num_channels, num_samples)
+		# buffer comes out in channels-last order
+		data.shape = (num_samples, num_channels)
 
-		return Wave(data / (2 ** (bit_depth - 1)), sample_rate)
+		# data.T to make it return data in channels-first order
+		return Wave(data.T / (2 ** (bit_depth - 1)), sample_rate)
