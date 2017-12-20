@@ -28,13 +28,15 @@ class Wave:
 
 	def to_file(self, filepath, bit_depth=16):
 		float_to_int = (2 ** (bit_depth - 1)) - 1
-		data_int = np.rint(self._data[0] * float_to_int).astype(np.int16)
+		data_int = np.rint(self._data * float_to_int).astype(np.int16)
+
+		data_cont = np.ascontiguousarray(data_int.T)
 
 		with wave.open(filepath, mode='wb') as file:
-			file.setnchannels(1)
+			file.setnchannels(len(self._data))
 			file.setsampwidth(int(bit_depth / 8))
 			file.setframerate(self._sample_rate)
-			file.writeframesraw(data_int.data)
+			file.writeframesraw(data_cont.data)
 
 	@staticmethod
 	def from_file(filepath):
