@@ -1,5 +1,7 @@
 import tensorflow as tf
 import nn
+import nn.kernels as kernels
+import nn.kernels.util
 
 
 def get_data_format_string(channels_last):
@@ -14,7 +16,7 @@ def widen_labels(inputs, channels_last=True):
 
 	outputs = tf.nn.convolution(
 		inputs,
-		filter=nn.blur_kernel([50, 1, 1, 1]),
+		filter=kernels.util.expand_2d(kernels.blur(50), width=1),
 		padding='SAME',
 		data_format=get_data_format_string(channels_last),
 		name='widening_filter',
@@ -34,6 +36,10 @@ def calc_cost(predictions, labels, channels_last=True):
 
 
 def magnitude_model(inputs, channels_last=True):
+	# TODO: play with fft size (trade frequency reso for time reso),
+	# window size (Odd window will make phase behave better (STFT class 2)),
+	# and phase unwrapping (looks like phase spectrogram would be mroe useful for determinning transients when unwrapped).
+	# Different windows might work better for noise rejection (blackman/blackman-harris
 	stfts = nn.stft(inputs, fft_length=64, step=1, pad_end=True, channels_last=channels_last)
 	sig_mag = tf.abs(stfts)
 
@@ -42,23 +48,17 @@ def magnitude_model(inputs, channels_last=True):
 
 	# inputs = nn.rms_normalize_per_band(inputs, channels_last=channels_last)
 
-	sig_mag = tf.pow(sig_mag, 0.6)
-
-	mag_band_gradients = tf.nn.convolution(
-		sig_mag,
-		filter=nn.transient_kernel([2, 1, 1, 1]),
-		padding='SAME',
-		data_format=get_data_format_string(channels_last),
-		name='layer_1'
-	)
+	# the log scale really brings out the lower transients, it must also bring out the noise, but it seems pretty dang good...
+	mag_band_gradients = tf.log(sig_mag + 1e-16)
 
 	band_axis = 2 if channels_last else 3
 
-	total_mag_gradients = tf.expand_dims(tf.reduce_sum(tf.abs(mag_band_gradients), axis=[band_axis]), axis=band_axis)
+	# TODO summing after the difference convolution is the same as summing before in this case, this is inefficient
+	total_mag_gradients = tf.expand_dims(tf.reduce_sum(mag_band_gradients, axis=[band_axis]), axis=band_axis)
 
 	smoothed_gradient = tf.nn.convolution(
 		total_mag_gradients,
-		filter=nn.transient_kernel([1024, 1, 1, 1]),
+		filter=kernels.util.expand_2d(kernels.diff(512), width=1),
 		padding='SAME',
 		data_format=get_data_format_string(channels_last),
 		name='layer_2'
