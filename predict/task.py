@@ -52,7 +52,7 @@ with tf.Session(config=tf.ConfigProto(log_device_placement=False)) as sess:
 	sess.run(init)
 	cost, output = sess.run([cost, tf.transpose(nn.normalize(predictions))])
 
-	print('Total Cost: ', cost)
+	logging.info('Total Cost: ' + str(cost))
 
 	wav_out = Wave(output, sample_rate=wav.sample_rate)
 	wav_out.to_file(os.path.join(job_dir, job_name + '_out.wav'))
