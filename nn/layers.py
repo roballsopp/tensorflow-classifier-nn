@@ -43,11 +43,11 @@ def smooth(inputs, size=128):
 
 # TODO: handle channels first
 def smooth_1d(inputs, size=128):
-	inputs = tf.pad(inputs, [[0, 0], [size - 1, 0], [0, 0]])
 	inputs = tf.layers.average_pooling1d(
 		inputs,
 		pool_size=size,
-		strides=1
+		strides=1,
+		padding='same'
 	)
 
 	return inputs

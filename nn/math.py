@@ -1,16 +1,25 @@
 import tensorflow as tf
 
-def rms_normalize_per_band(spectrogram, channels_last=True):
-	band_axis = 1 if channels_last else 2
-	band_rms = tf.sqrt(tf.reduce_mean(tf.square(spectrogram), keep_dims=True, axis=[band_axis]))
-	den = tf.expand_dims(band_rms, axis=1)
 
-	return spectrogram / den
+def rms_normalize(inputs, axis=None, non_zero=False):
+	inputs_squared = tf.square(inputs)
+	if non_zero:
+		squared_mean = tf.reduce_sum(inputs_squared, keep_dims=True, axis=axis) / tf.count_nonzero(inputs_squared)
+	else:
+		squared_mean = tf.reduce_mean(inputs_squared, keep_dims=True, axis=axis)
 
+	rms = tf.sqrt(squared_mean)
 
-def rms_normalize(inputs, axis=None):
-	rms = tf.sqrt(tf.reduce_mean(tf.square(inputs), keep_dims=True, axis=axis))
 	return inputs / rms
+
+
+def mean_normalize(inputs, axis=None, non_zero=False):
+	if non_zero:
+		mean = tf.reduce_sum(inputs, keep_dims=True, axis=axis) / tf.count_nonzero(inputs)
+	else:
+		mean = tf.reduce_mean(inputs, keep_dims=True, axis=axis)
+
+	return inputs / mean
 
 
 def normalize(inputs, axis=None):

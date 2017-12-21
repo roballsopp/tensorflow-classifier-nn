@@ -5,7 +5,9 @@ def stft(inputs, fft_length=64, step=1, pad_end=False, channels_last=False):
 	if channels_last:
 		inputs = tf.transpose(inputs)
 
-	stfts = tf.contrib.signal.stft(inputs, frame_length=fft_length, frame_step=step, fft_length=fft_length, pad_end=pad_end)
+	window_fn = functools.partial(tf.contrib.signal.hamming_window, periodic=True)
+
+	stfts = tf.contrib.signal.stft(inputs, frame_length=fft_length - 1, frame_step=step, pad_end=pad_end, window_fn=window_fn)
 
 	if channels_last:
 		stfts = tf.transpose(stfts, perm=[1, 2, 0])

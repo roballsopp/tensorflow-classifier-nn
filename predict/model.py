@@ -34,48 +34,60 @@ def calc_cost(predictions, labels, channels_last=True):
 	predictions = widen_labels(predictions, channels_last=channels_last)
 	labels = widen_labels(labels, channels_last=channels_last)
 
-	return tf.sqrt(tf.reduce_mean(tf.square(labels - predictions)))
+	return tf.reduce_mean(tf.abs(labels - predictions))
 
 
 def magnitude_model(inputs, channels_last=True):
 	# TODO: play with fft size (trade frequency reso for time reso),
 	# window size (Odd window will make phase behave better (STFT class 2)),
 	# and phase unwrapping (looks like phase spectrogram would be more useful for determining transients when unwrapped).
-	# Different windows might work better for noise rejection (blackman/blackman-harris
-	stfts = nn.stft(inputs, fft_length=64, step=1, pad_end=True, channels_last=channels_last)
+	# Different windows might work better for noise rejection (blackman/blackman-harris)
+	fft_size = 256
+	# advantage of using fft to generate magnitude over just raw signal is the fft magnitude is separated from the phase component
+	# in the raw signal, the magnitudes are all there, but the sine waves are shifted to make them very uneven
+	stfts = nn.stft(inputs, fft_length=fft_size, step=1, pad_end=True, channels_last=channels_last)
 	sig_mag = tf.abs(stfts)
 
-	# create the "batch" dim, even though there is only one example
-	sig_mag = tf.expand_dims(sig_mag, axis=0)
+	# time_axis = 0 if channels_last else 1
 
-	# inputs = nn.rms_normalize_per_band(inputs, channels_last=channels_last)
+	# normalize each band. reduce along time axis to do this. very similar effect to just dropping all low freqs
+	# sig_mag = nn.mean_normalize(sig_mag, axis=time_axis)
+	# drop all low freqs
+	# sig_mag = sig_mag[:, 15:, :]
+
+	band_axis = 1 if channels_last else 2
+
+	total_mag = tf.reduce_sum(sig_mag, axis=[band_axis])
+
+	# create the "batch" dim, even though there is only one example
+	total_mag = tf.expand_dims(total_mag, axis=0)
 
 	# the log scale really brings out the lower transients, it must also bring out the noise, but it seems pretty dang good...
-	mag_log = tf.log(sig_mag + 1e-16)
+	total_mag_log = tf.log(total_mag + 1e-16)
 
-	band_axis = 2 if channels_last else 3
-
-	total_mag_log = tf.reduce_sum(mag_log, axis=[band_axis])
+	diff_size = 512
+	diff_inputs = tf.pad(total_mag_log, [[0, 0], [diff_size - 1, 0], [0, 0]])
 
 	mag_diff = tf.nn.convolution(
-		total_mag_log,
-		filter=kernels.util.expand_1d(kernels.diff(512)),
-		padding='SAME',
+		diff_inputs,
+		filter=kernels.util.expand_1d(kernels.diff(diff_size)),
+		padding='VALID',
 		data_format=get_1d_data_format_string(channels_last)
 	)
 
-	smoothed_gradient = nn.smooth_1d(mag_diff, size=128)
+	# needed for lower fft resolutions (worked nicely at fft length of 64)
+	# smoothed_gradient = nn.smooth_1d(mag_diff, size=128)
 
-	normed_out = tf.nn.relu(nn.rms_normalize(smoothed_gradient))
+	rect_gradient = tf.nn.relu(mag_diff)
 
-	peaks = nn.find_peaks_1d(normed_out, channels_last=channels_last)
+	peaks = nn.find_peaks_1d(rect_gradient, channels_last=channels_last)
 
-	final_out = normed_out * peaks
+	final_out = rect_gradient * peaks
 
 	# remove "batch" dim
 	final_out = tf.squeeze(final_out, axis=[0])
 
-	return final_out
+	return nn.normalize(final_out)
 
 
 def autocorrelation_model(inputs, avg_response, channels_last=True):
