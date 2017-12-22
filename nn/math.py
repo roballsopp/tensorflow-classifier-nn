@@ -1,21 +1,25 @@
 import tensorflow as tf
 
 
-def rms_normalize(inputs, axis=None, non_zero=False):
+def rms(inputs, axis=None, non_zero=False):
 	inputs_squared = tf.square(inputs)
 	if non_zero:
-		squared_mean = tf.reduce_sum(inputs_squared, keep_dims=True, axis=axis) / tf.count_nonzero(inputs_squared)
+		squared_mean = tf.reduce_sum(inputs_squared, keep_dims=True, axis=axis) / tf.count_nonzero(inputs_squared, dtype=tf.float32)
 	else:
 		squared_mean = tf.reduce_mean(inputs_squared, keep_dims=True, axis=axis)
 
 	rms = tf.sqrt(squared_mean)
 
-	return inputs / rms
+	return rms
+
+
+def rms_normalize(inputs, axis=None, non_zero=False):
+	return inputs / rms(inputs, axis, non_zero)
 
 
 def mean_normalize(inputs, axis=None, non_zero=False):
 	if non_zero:
-		mean = tf.reduce_sum(inputs, keep_dims=True, axis=axis) / tf.count_nonzero(inputs)
+		mean = tf.reduce_sum(inputs, keep_dims=True, axis=axis) / tf.count_nonzero(inputs, dtype=tf.float32)
 	else:
 		mean = tf.reduce_mean(inputs, keep_dims=True, axis=axis)
 

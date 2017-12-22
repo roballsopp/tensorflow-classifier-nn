@@ -37,7 +37,26 @@ def calc_cost(predictions, labels, channels_last=True):
 	return tf.reduce_mean(tf.abs(labels - predictions))
 
 
+def pre_process(inputs, channels_last=True):
+	time_axis = 0 if channels_last else 1
+	# remove dc offset
+	dc_offset = tf.reduce_mean(inputs, axis=[time_axis], keep_dims=True)
+	inputs = inputs - dc_offset
+
+	# make sure signals come in roughly at the same energy level (rms of 1)
+	# rms_norm_factor = tf.sqrt((inputs.shape[time_axis].value * (new_rms ** 2)) / tf.reduce_sum(inputs ** 2, axis=time_axis))
+	normed_inputs = nn.rms_normalize(inputs, axis=time_axis)
+
+	return normed_inputs
+
+
+def post_process(outputs, channels_last=True):
+	time_axis = 0 if channels_last else 1
+	return nn.rms_normalize(outputs, axis=time_axis, non_zero=True)
+
+
 def magnitude_model(inputs, channels_last=True):
+	normed_inputs = pre_process(inputs, channels_last=channels_last)
 	# TODO: play with fft size (trade frequency reso for time reso),
 	# window size (Odd window will make phase behave better (STFT class 2)),
 	# and phase unwrapping (looks like phase spectrogram would be more useful for determining transients when unwrapped).
@@ -45,7 +64,7 @@ def magnitude_model(inputs, channels_last=True):
 	fft_size = 256
 	# advantage of using fft to generate magnitude over just raw signal is the fft magnitude is separated from the phase component
 	# in the raw signal, the magnitudes are all there, but the sine waves are shifted to make them very uneven
-	stfts = nn.stft(inputs, fft_length=fft_size, step=1, pad_end=True, channels_last=channels_last)
+	stfts = nn.stft(normed_inputs, fft_length=fft_size, step=1, pad_end=True, channels_last=channels_last)
 	sig_mag = tf.abs(stfts)
 
 	# time_axis = 0 if channels_last else 1
@@ -87,7 +106,7 @@ def magnitude_model(inputs, channels_last=True):
 	# remove "batch" dim
 	final_out = tf.squeeze(final_out, axis=[0])
 
-	return nn.normalize(final_out)
+	return post_process(final_out, channels_last=channels_last)
 
 
 def autocorrelation_model(inputs, avg_response, channels_last=True):

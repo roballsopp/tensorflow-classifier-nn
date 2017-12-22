@@ -43,8 +43,7 @@ inputs = tf.transpose(inputs)[:500000, :]
 labels = tf.transpose(labels)[:500000, :]
 
 raw_outputs = model(inputs, channels_last=True)
-# TODO: this is affected by how loud the signal is coming into the tanh function
-predictions = tf.cast(raw_outputs > 0.1, dtype=tf.float32)
+predictions = tf.cast(raw_outputs > 0.4, dtype=tf.float32)
 cost = calc_cost(predictions, labels, channels_last=True)
 
 init = tf.global_variables_initializer()
