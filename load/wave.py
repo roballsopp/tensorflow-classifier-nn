@@ -146,11 +146,13 @@ class WaveTF:
 
 			data_start = file.tell()
 			data_len = next_chunk_size
+			byte_depth = bit_depth / 8
+			num_frames = int(data_len / byte_depth / num_chan)
 
 			file = tf.read_file(filepath)
 
 			audio_data = tf.decode_raw(tf.substr(file, data_start, data_len), BIT_DEPTH_TYPE[bit_depth], little_endian=True)
 			audio_data = tf.cast(audio_data, tf.float32) / (2 ** (bit_depth - 1))
-			audio_data = tf.reshape(audio_data, [-1, num_chan])
+			audio_data = tf.reshape(audio_data, [num_frames, num_chan])
 
 			return WaveTF(tf.transpose(audio_data), sr)
