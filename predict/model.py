@@ -5,10 +5,6 @@ import nn.kernels.util
 import spectral
 
 
-def get_data_format_string(channels_last):
-	return 'NHWC' if channels_last else 'NCHW'
-
-
 def get_1d_data_format_string(channels_last):
 	return 'NWC' if channels_last else 'NCW'
 
@@ -113,94 +109,3 @@ def magnitude_model(inputs, channels_last=True):
 	final_out = tf.squeeze(final_out, axis=[0])
 
 	return post_process(final_out, channels_last=channels_last)
-
-
-def autocorrelation_model(inputs, avg_response, channels_last=True):
-	signal_filter = tf.abs(avg_response)
-	filter_length = signal_filter.shape[0].value
-	fft_length = (filter_length - 1) * 2
-
-	# create a "height" dim
-	signal_filter = tf.expand_dims(signal_filter, axis=[0])
-
-	stfts = nn.stft(inputs, fft_length=fft_length, step=1, pad_end=True, channels_last=channels_last)
-	sig_mag = tf.abs(stfts)
-
-	# create the "batch" dim, even though there is only one example
-	sig_mag = tf.expand_dims(sig_mag, axis=0)
-
-	correlated_out = tf.nn.convolution(
-		sig_mag,
-		filter=tf.expand_dims(signal_filter, axis=3),
-		padding='VALID',
-		data_format=get_data_format_string(channels_last)
-	)
-
-	smoothed_out = nn.smooth(correlated_out, size=128)
-
-	normed_out = nn.rms_normalize(smoothed_out)
-
-	peaks = nn.find_peaks_1d(normed_out, channels_last=channels_last)
-
-	final_out = normed_out * peaks
-
-	# remove "batch" dim, and band dim
-	final_out = tf.squeeze(final_out, axis=[0, 2])
-
-	return final_out
-
-
-def autocorrelation2_model(inputs, signal_filter, channels_last=True):
-	# create the "batch" dim, even though there is only one example
-	inputs = tf.expand_dims(inputs, axis=0)
-
-	inputs = tf.pad(inputs, [[0, 0], [0, 255], [0, 0]], 'CONSTANT')
-
-	correlated_out = tf.nn.convolution(
-		inputs,
-		filter=tf.expand_dims(signal_filter, axis=2),
-		padding='VALID',
-		data_format=get_1d_data_format_string(channels_last)
-	)
-
-	smoothed_out = nn.smooth(correlated_out, size=128)
-
-	normed_out = nn.rms_normalize(smoothed_out)
-
-	peaks = nn.find_peaks_1d(normed_out, channels_last=channels_last)
-
-	final_out = normed_out * peaks
-
-	# remove "batch" dim
-	final_out = tf.squeeze(final_out, axis=[0])
-
-	return final_out
-
-
-def deconvolution_model(inputs, deconv_filter, channels_last=True):
-	filter_length = deconv_filter.shape[0].value
-	fft_length = (filter_length - 1) * 2
-
-	stfts = nn.stft(inputs, fft_length=fft_length, step=1, channels_last=channels_last)
-	sig_mag = tf.abs(stfts)
-	sig_phase = tf.angle(stfts)
-
-	# sig_mag = tf.Print(sig_mag, [sig_mag, sig_phase], summarize=50)
-
-	deconv_filter = tf.expand_dims(deconv_filter, axis=[0])
-
-	filter_mag = tf.abs(deconv_filter)
-	filter_phase = tf.angle(deconv_filter)
-
-	# filter_mag = tf.Print(filter_mag, [filter_mag, filter_phase], summarize=50)
-
-	mag_out = sig_mag / filter_mag
-	phase_out = sig_phase - filter_phase
-
-	# mag_out = tf.Print(mag_out, [mag_out, phase_out], summarize=50)
-
-	stfts = spectral.polar_to_complex([mag_out, phase_out])
-
-	outputs = spectral.istft(stfts, fft_length=fft_length, channels_last=channels_last)
-
-	return outputs
