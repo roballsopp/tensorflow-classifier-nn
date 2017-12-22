@@ -1,4 +1,5 @@
 import tensorflow as tf
+import functools
 
 def stft(inputs, window_length=64, step=1, pad_end=False, channels_last=False):
 	# fft requires sample data in the last dimension, so transpose if its not
