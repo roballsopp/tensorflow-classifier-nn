@@ -53,17 +53,40 @@ def post_process(outputs, channels_last=True):
 	return nn.rms_normalize(outputs, axis=time_axis, non_zero=True)
 
 
+# assumes a batch of 1d signals
+def interpolate(x, new_width, channels_last=True):
+	height_axis = 1 if channels_last else 2
+	chan_axis = -1 if channels_last else 1
+	num_chan = x.shape[chan_axis].value
+	# create a "height" dim, because resize_images expects to be working in a 2d space
+	x = tf.expand_dims(x, axis=height_axis)
+
+	interpolated_x = tf.image.resize_images(
+		x,
+		size=[num_chan, new_width],
+		# TODO: bicubic vs bilinear
+		method=tf.image.ResizeMethod.BILINEAR
+	)
+
+	interpolated_x = tf.squeeze(interpolated_x, axis=[height_axis])
+
+	return interpolated_x
+
+
 def magnitude_model(inputs, channels_last=True):
 	normed_inputs = pre_process(inputs, channels_last=channels_last)
 
 	time_axis = 0 if channels_last else 1
 	band_axis = 1 if channels_last else 2
+	input_length = inputs.shape[time_axis].value
 
 	# TODO: play with fft size (trade frequency reso for time reso),
 	# window size (Odd window will make phase behave better (STFT class 2)),
 	# and phase unwrapping (looks like phase spectrogram would be more useful for determining transients when unwrapped).
 	# Different windows might work better for noise rejection (blackman/blackman-harris)
 	fft_size = 255
+	# TODO: handle any number for fft_step. kernel_size below must evaluate to an even number, and fft_step has an impact
+	fft_step = 10
 
 	# shift input to fft so output energy is positioned correctly for later stages
 	# if we don't shift here, the fft draws energy forward in time, making our markers early when they come out later
@@ -73,7 +96,7 @@ def magnitude_model(inputs, channels_last=True):
 
 	# advantage of using fft to generate magnitude over just raw signal is the fft magnitude is separated from the phase component
 	# in the raw signal, the magnitudes are all there, but the sine waves are shifted to make them very uneven
-	stfts = nn.stft(fft_inputs, window_length=fft_size, step=1, channels_last=channels_last)
+	stfts = nn.stft(fft_inputs, window_length=fft_size, step=fft_step, channels_last=channels_last)
 	sig_mag = tf.abs(stfts)
 
 	# normalize each band. reduce along time axis to do this. very similar effect to just dropping all low freqs
@@ -89,12 +112,19 @@ def magnitude_model(inputs, channels_last=True):
 	# create the "batch" dim, even though there is only one example
 	total_mag_log = tf.expand_dims(total_mag_log, axis=0)
 
+	# TODO: this must evaluate to an even number right now
+	kernel_size = int(500 / fft_step)
+
 	mag_diff = tf.nn.convolution(
 		total_mag_log,
-		filter=kernels.util.expand_1d(kernels.diff(512)),
+		filter=kernels.util.expand_1d(kernels.diff(kernel_size)),
 		padding='SAME',
 		data_format=get_1d_data_format_string(channels_last)
 	)
+
+	# compensate for any sample skipping we did during the stft
+	if fft_step > 1:
+		mag_diff = interpolate(mag_diff, input_length, channels_last=channels_last)
 
 	# needed for lower fft resolutions (worked nicely at fft length of 64)
 	# smoothed_gradient = nn.smooth_1d(mag_diff, size=128)
