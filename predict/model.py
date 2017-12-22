@@ -62,9 +62,11 @@ def magnitude_model(inputs, channels_last=True):
 	# and phase unwrapping (looks like phase spectrogram would be more useful for determining transients when unwrapped).
 	# Different windows might work better for noise rejection (blackman/blackman-harris)
 	fft_size = 256
+	# TODO: handle channels first
+	fft_inputs = tf.pad(normed_inputs, [[fft_size - 1, 0], [0, 0]])
 	# advantage of using fft to generate magnitude over just raw signal is the fft magnitude is separated from the phase component
 	# in the raw signal, the magnitudes are all there, but the sine waves are shifted to make them very uneven
-	stfts = nn.stft(normed_inputs, fft_length=fft_size, step=1, pad_end=True, channels_last=channels_last)
+	stfts = nn.stft(fft_inputs, fft_length=fft_size, step=1, channels_last=channels_last)
 	sig_mag = tf.abs(stfts)
 
 	# time_axis = 0 if channels_last else 1
@@ -84,13 +86,10 @@ def magnitude_model(inputs, channels_last=True):
 	# the log scale really brings out the lower transients, it must also bring out the noise, but it seems pretty dang good...
 	total_mag_log = tf.log(total_mag + 1e-16)
 
-	diff_size = 512
-	diff_inputs = tf.pad(total_mag_log, [[0, 0], [diff_size - 1, 0], [0, 0]])
-
 	mag_diff = tf.nn.convolution(
-		diff_inputs,
-		filter=kernels.util.expand_1d(kernels.diff(diff_size)),
-		padding='VALID',
+		total_mag_log,
+		filter=kernels.util.expand_1d(kernels.diff(512)),
+		padding='SAME',
 		data_format=get_1d_data_format_string(channels_last)
 	)
 
