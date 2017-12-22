@@ -63,7 +63,7 @@ def magnitude_model(inputs, channels_last=True):
 	# window size (Odd window will make phase behave better (STFT class 2)),
 	# and phase unwrapping (looks like phase spectrogram would be more useful for determining transients when unwrapped).
 	# Different windows might work better for noise rejection (blackman/blackman-harris)
-	fft_size = 256
+	fft_size = 255
 
 	# shift input to fft so output energy is positioned correctly for later stages
 	# if we don't shift here, the fft draws energy forward in time, making our markers early when they come out later
@@ -73,7 +73,7 @@ def magnitude_model(inputs, channels_last=True):
 
 	# advantage of using fft to generate magnitude over just raw signal is the fft magnitude is separated from the phase component
 	# in the raw signal, the magnitudes are all there, but the sine waves are shifted to make them very uneven
-	stfts = nn.stft(fft_inputs, fft_length=fft_size, step=1, channels_last=channels_last)
+	stfts = nn.stft(fft_inputs, window_length=fft_size, step=1, channels_last=channels_last)
 	sig_mag = tf.abs(stfts)
 
 	# normalize each band. reduce along time axis to do this. very similar effect to just dropping all low freqs
