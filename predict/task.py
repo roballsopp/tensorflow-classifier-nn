@@ -6,9 +6,8 @@ from argparse import ArgumentParser
 import tensorflow as tf
 import nn
 
-from load import Wave
+from load import Wave, WaveTF
 from predict.model import magnitude_model as model, calc_cost
-from predict.avg_spectrograms import get_avg_response
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
@@ -27,18 +26,12 @@ job_dir = args.job_dir
 job_name = args.job_name
 
 logging.info('Loading input file ' + input_filepath + '...')
-wav = Wave.from_file(input_filepath)
+wav = WaveTF.from_file(input_filepath)
+labels = WaveTF.from_file(label_filepath)
 
-labels = Wave.from_file(label_filepath)
 labels = labels.get_data()
-labels = tf.convert_to_tensor(labels, dtype=tf.float32)
-
 inputs = wav.get_data()
-inputs = tf.convert_to_tensor(inputs, dtype=tf.float32)
 
-avg_response = get_avg_response(inputs, labels, spectrogram_size=128)
-
-avg_response = tf.transpose(avg_response, perm=[1, 2, 0])
 inputs = tf.transpose(inputs)[:500000, :]
 labels = tf.transpose(labels)[:500000, :]
 

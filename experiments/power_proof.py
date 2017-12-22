@@ -7,7 +7,7 @@ import nn
 from matplotlib import pyplot as plt
 import numpy as np
 
-from load import Wave
+from load import Wave, WaveTF
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
@@ -24,10 +24,9 @@ job_dir = args.job_dir
 job_name = args.job_name
 
 logging.info('Loading input file ' + input_filepath + '...')
-wav = Wave.from_file(input_filepath)
+wav = WaveTF.from_file(input_filepath)
 
 inputs = wav.get_data()
-inputs = tf.convert_to_tensor(inputs, dtype=tf.float32)
 
 inputs = inputs[:, 6264000:6276000]
 

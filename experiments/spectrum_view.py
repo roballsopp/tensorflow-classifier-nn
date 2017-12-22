@@ -7,7 +7,7 @@ import nn
 from matplotlib import pyplot as plt
 import numpy as np
 
-from load import Wave
+from load import WaveTF
 from scipy.signal import get_window
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
@@ -35,12 +35,10 @@ job_dir = args.job_dir
 job_name = args.job_name
 
 logging.info('Loading input file ' + input_filepath + '...')
-wav = Wave.from_file(input_filepath)
+wav = WaveTF.from_file(input_filepath)
 
 audio_data = wav.get_data()
 sr = wav.sample_rate
-
-audio_data = tf.convert_to_tensor(audio_data, dtype=tf.float32)
 
 # linkin park start: 24, len: 10, no vox
 # veil of maya start: 2, len: 10, vox
