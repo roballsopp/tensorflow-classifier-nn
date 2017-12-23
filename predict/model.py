@@ -2,6 +2,8 @@ import tensorflow as tf
 import nn
 import nn.kernels as kernels
 import nn.kernels.util
+import spectral
+import audio
 
 
 def get_1d_data_format_string(channels_last):
@@ -52,32 +54,6 @@ def post_process(outputs, channels_last=True):
 	return nn.rms_normalize(outputs, axis=time_axis, non_zero=True)
 
 
-# assumes a batch of 1d signals
-def interpolate(x, new_width, channels_last=True):
-	height_axis = 1 if channels_last else 2
-	chan_axis = -1 if channels_last else 1
-	num_chan = x.shape[chan_axis].value
-	# create a "height" dim, because resize_images expects to be working in a 2d space
-	x = tf.expand_dims(x, axis=height_axis)
-
-	if not channels_last:
-		x = tf.transpose(x, perm=[0, 2, 3, 1])
-
-	interpolated_x = tf.image.resize_images(
-		x,
-		size=[num_chan, new_width],
-		# TODO: bicubic vs bilinear
-		method=tf.image.ResizeMethod.BILINEAR
-	)
-
-	if not channels_last:
-		interpolated_x = tf.transpose(interpolated_x, perm=[0, 3, 1, 2])
-
-	interpolated_x = tf.squeeze(interpolated_x, axis=[height_axis])
-
-	return interpolated_x
-
-
 def magnitude_model(inputs, channels_last=True):
 	normed_inputs = pre_process(inputs, channels_last=channels_last)
 
@@ -101,8 +77,8 @@ def magnitude_model(inputs, channels_last=True):
 
 	# advantage of using fft to generate magnitude over just raw signal is the fft magnitude is separated from the phase component
 	# in the raw signal, the magnitudes are all there, but the sine waves are shifted to make them very uneven
-	stfts = nn.stft(fft_inputs, window_length=fft_size, step=fft_step, channels_last=channels_last)
 	sig_mag = tf.abs(stfts)
+	stfts = spectral.stft(fft_inputs, window_length=fft_size, step=fft_step, channels_last=channels_last)
 
 	# normalize each band. reduce along time axis to do this. very similar effect to just dropping all low freqs
 	# sig_mag = nn.mean_normalize(sig_mag, axis=time_axis)
@@ -129,7 +105,7 @@ def magnitude_model(inputs, channels_last=True):
 
 	# compensate for any sample skipping we did during the stft
 	if fft_step > 1:
-		mag_diff = interpolate(mag_diff, input_length, channels_last=channels_last)
+		mag_diff = audio.interpolate(mag_diff, input_length, channels_last=channels_last)
 
 	# needed for lower fft resolutions (worked nicely at fft length of 64)
 	# smoothed_gradient = nn.smooth_1d(mag_diff, size=128)
