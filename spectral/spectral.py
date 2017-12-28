@@ -2,13 +2,12 @@ import tensorflow as tf
 import functools
 import numpy as np
 
+default_window_fn = functools.partial(tf.contrib.signal.hamming_window, periodic=True)
 
-def stft(inputs, window_length=64, step=1, pad_end=False, channels_last=False):
+def stft(inputs, window_length=64, step=1, pad_end=False, channels_last=False, window_fn=default_window_fn):
 	# fft requires sample data in the last dimension, so transpose if its not
 	if channels_last:
 		inputs = tf.transpose(inputs)
-
-	window_fn = functools.partial(tf.contrib.signal.hamming_window, periodic=True)
 
 	stft = tf.contrib.signal.stft(inputs, frame_length=window_length, frame_step=step, pad_end=pad_end, window_fn=window_fn)
 
@@ -58,13 +57,15 @@ def polar_to_complex(polar):
 	return tf.complex(real, imag)
 
 
-def unwrap(p, channels_last=False):
-	band_axis = 1 if channels_last else 2
+def unwrap(p, axis=0):
+	ndims = p.shape.ndims
+	from_2nd = [slice(None)] * ndims
+	from_2nd[axis] = slice(1, None)
 
-	if channels_last:
-		diff = p[:, 1:, :] - p[:, :-1, :]
-	else:
-		diff = p[:, :, 1:] - p[:, :, :-1]
+	to_2nd_to_last = [slice(None)] * ndims
+	to_2nd_to_last[axis] = slice(None, -1)
+
+	diff = p[from_2nd] - p[to_2nd_to_last]
 
 	diff_mod = (diff + np.pi) % (2 * np.pi) - np.pi
 	cond = (diff_mod == -np.pi) & (diff > 0)
@@ -72,11 +73,9 @@ def unwrap(p, channels_last=False):
 	ph_correct = diff_mod - diff
 	ph_correct = tf.where(tf.abs(diff) < np.pi, tf.zeros(diff.shape), ph_correct)
 
-	cumsum = tf.cumsum(ph_correct, axis=band_axis)
-	# add back the band that was lost by the diff above
-	padding = [[0, 0], [0, 0], [0, 0]]
-	padding[band_axis] = [1, 0]
+	cumsum = tf.cumsum(ph_correct, axis=axis)
 
-	cumsum_padded = tf.pad(cumsum, padding)
+	to_2nd = [slice(None)] * ndims
+	to_2nd[axis] = slice(None, 1)
 
-	return p + cumsum_padded
+	return tf.concat([p[to_2nd], p[from_2nd] + cumsum], axis=axis)
