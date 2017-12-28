@@ -95,6 +95,9 @@ def find_phase_peaks(phase, fft_step, channels_last=True):
 
 	phase_sum = tf.reduce_sum(phase, axis=[band_axis])
 
+	smooth_size = int(round(300 / fft_step))
+	phase_sum = nn.smooth_1d(phase_sum, size=smooth_size)
+
 	kernel_size = int(round(500 / fft_step))
 
 	phase_diff = tf.nn.convolution(
@@ -110,9 +113,6 @@ def find_phase_peaks(phase, fft_step, channels_last=True):
 	# adjust so that only the peaks are positive
 	phase_diff = phase_diff - (phase_std * 1)
 
-	smooth_size = int(round(60 / fft_step))
-	phase_diff = nn.smooth_1d(phase_diff, size=smooth_size)
-
 	return phase_diff
 
 
@@ -126,7 +126,7 @@ def magnitude_model(inputs, channels_last=True):
 	# window size (Odd window will make phase behave better (STFT class 2)),
 	# and phase unwrapping (looks like phase spectrogram would be more useful for determining transients when unwrapped).
 	# Different windows might work better for noise rejection (blackman/blackman-harris)
-	window_size = 255
+	window_size = 511
 	fft_step = 10
 
 	# shift input to fft so output energy is positioned correctly for later stages
