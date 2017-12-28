@@ -73,7 +73,6 @@ def find_magnitude_peaks(mag, fft_step, channels_last=True):
 
 	mag_sum = tf.reduce_sum(mag, axis=[band_axis])
 
-	# TODO: this must evaluate to an even number right now
 	kernel_size = int(500 / fft_step)
 
 	mag_diff = tf.nn.convolution(
@@ -96,8 +95,7 @@ def find_phase_peaks(phase, fft_step, channels_last=True):
 
 	phase_sum = tf.reduce_sum(phase, axis=[band_axis])
 
-	# TODO: this must evaluate to an even number right now
-	kernel_size = int(400 / fft_step)
+	kernel_size = int(round(500 / fft_step))
 
 	phase_diff = tf.nn.convolution(
 		phase_sum,
@@ -111,6 +109,9 @@ def find_phase_peaks(phase, fft_step, channels_last=True):
 
 	# adjust so that only the peaks are positive
 	phase_diff = phase_diff - (phase_std * 1)
+
+	smooth_size = int(round(60 / fft_step))
+	phase_diff = nn.smooth_1d(phase_diff, size=smooth_size)
 
 	return phase_diff
 
@@ -126,7 +127,6 @@ def magnitude_model(inputs, channels_last=True):
 	# and phase unwrapping (looks like phase spectrogram would be more useful for determining transients when unwrapped).
 	# Different windows might work better for noise rejection (blackman/blackman-harris)
 	window_size = 255
-	# TODO: handle any number for fft_step. kernel_size below must evaluate to an even number, and fft_step has an impact
 	fft_step = 10
 
 	# shift input to fft so output energy is positioned correctly for later stages
