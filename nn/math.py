@@ -26,6 +26,16 @@ def mean_normalize(inputs, axis=None, non_zero=False):
 	return inputs / mean
 
 
+def abs_mean_normalize(inputs, axis=None, non_zero=False):
+	inputs_abs = tf.abs(inputs)
+	if non_zero:
+		mean = tf.reduce_sum(inputs_abs, keep_dims=True, axis=axis) / tf.count_nonzero(inputs_abs, dtype=tf.float32)
+	else:
+		mean = tf.reduce_mean(inputs_abs, keep_dims=True, axis=axis)
+
+	return inputs / mean
+
+
 def normalize(inputs, axis=None):
 	maximum = tf.reduce_max(tf.abs(inputs), keep_dims=True, axis=axis)
 	return inputs / maximum
