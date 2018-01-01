@@ -24,6 +24,7 @@ input_filepath = args.input_file
 label_filepath = args.label_file
 job_dir = args.job_dir
 job_name = args.job_name
+channels_last = True
 
 logging.info('Loading input file ' + input_filepath + '...')
 wav = WaveTF.from_file(input_filepath)
@@ -32,12 +33,16 @@ labels = WaveTF.from_file(label_filepath)
 labels = labels.get_data()
 inputs = wav.get_data()
 
-inputs = tf.transpose(inputs)[:500000, :]
-labels = tf.transpose(labels)[:500000, :]
+start = 0
+length = 1000000
+end = start + length
 
-raw_outputs = model(inputs, channels_last=True)
+inputs = tf.transpose(inputs)[start:end, :]
+labels = tf.transpose(labels)[start:end, :]
+
+raw_outputs = model(inputs, channels_last=channels_last)
 predictions = tf.cast(raw_outputs > 0.4, dtype=tf.float32)
-cost = calc_cost(predictions, labels, channels_last=True)
+cost = calc_cost(predictions, labels, channels_last=channels_last)
 
 init = tf.global_variables_initializer()
 
