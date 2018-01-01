@@ -4,27 +4,28 @@ import nn.math
 
 
 def find_peaks_1d(inputs, channels_last=True):
-	if channels_last:
-		# all upward sloping locations are positive, plateaus will be 0, and all down slopes are negative
-		diff = inputs[:, 1:, :] - inputs[:, :-1, :]
-		# all up slopes are 1, everywhere else is 0
-		peaks = tf.cast(diff > 0, dtype=tf.float32)
-		# put a -1 at all locations where a transition from a 1 to a 0 occurred
-		# this effectively marks all locations where an onset stopped, and an offset or plateau began
-		# a +1 will be at the locations where a plateau or down slope began to go up
-		peaks = peaks[:, 1:, :] - peaks[:, :-1, :]
-		# convert those -1s to 1s, and ignore the rest
-		peaks = tf.maximum(peaks * -1, 0)
-		# add back the two elements that were lost to the two diffing stages above
-		peaks = tf.pad(peaks, [[0, 0], [1, 1],  [0, 0]])
-		return peaks
+	time_axis = 1 if channels_last else 2
 
-	# all the same as above, just channels first
-	diff = inputs[:, :, 1:] - inputs[:, :, :-1]
+	from_2nd = [slice(None), slice(None), slice(None)]
+	from_2nd[time_axis] = slice(1, None)
+
+	to_2nd_to_last = [slice(None), slice(None), slice(None)]
+	to_2nd_to_last[time_axis] = slice(None, -1)
+
+	# all upward sloping locations are positive, plateaus will be 0, and all down slopes are negative
+	diff = inputs[from_2nd] - inputs[to_2nd_to_last]
+	# all up slopes are 1, everywhere else is 0
 	peaks = tf.cast(diff > 0, dtype=tf.float32)
-	peaks = peaks[:, :, 1:] - peaks[:, :, :-1]
+	# put a -1 at all locations where a transition from a 1 to a 0 occurred
+	# this effectively marks all locations where an onset stopped, and an offset or plateau began
+	# a +1 will be at the locations where a plateau or down slope began to go up
+	peaks = peaks[from_2nd] - peaks[to_2nd_to_last]
+	# convert those -1s to 1s, and ignore the rest
 	peaks = tf.maximum(peaks * -1, 0)
-	peaks = tf.pad(peaks, [[0, 0], [0, 0], [1, 1]])
+	# add back the two elements that were lost to the two diffing stages above
+	padding = [[0, 0], [0, 0],  [0, 0]]
+	padding[time_axis] = [1, 1]
+	peaks = tf.pad(peaks, padding)
 
 	return peaks
 
