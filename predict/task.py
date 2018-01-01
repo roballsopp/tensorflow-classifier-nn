@@ -37,8 +37,12 @@ start = 0
 length = 1000000
 end = start + length
 
-inputs = tf.transpose(inputs)[start:end, :]
-labels = tf.transpose(labels)[start:end, :]
+inputs = inputs[:, start:end]
+labels = labels[:, start:end]
+
+if channels_last:
+	inputs = tf.transpose(inputs)
+	labels = tf.transpose(labels)
 
 raw_outputs = model(inputs, channels_last=channels_last)
 predictions = tf.cast(raw_outputs > 0.4, dtype=tf.float32)
