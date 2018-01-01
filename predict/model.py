@@ -134,24 +134,19 @@ def find_phase_peaks(phase, fft_step, channels_last=True):
 	return phase_diff
 
 
-def magnitude_model(inputs, channels_last=True):
-	normed_inputs = pre_process(inputs, channels_last=channels_last)
-
-	window_size = 511
-	fft_step = 10
+def batched_stft(x, window_size, step, channels_last=True):
 	time_axis = 0 if channels_last else 1
-	input_length = normed_inputs.shape[time_axis].value
+	input_length = x.shape[time_axis].value
 
 	# shift input to fft so output energy is positioned correctly for later stages
 	# if we don't shift here, the fft draws energy forward in time, making our markers early when they come out later
 	padding = [[0, 0], [0, 0]]
 	padding[time_axis] = [window_size - 1, 0]
-	normed_inputs = tf.pad(normed_inputs, padding)
-	num_ffts_per_batch = 50000
+	normed_inputs = tf.pad(x, padding)
+	num_ffts_per_batch = 5000
 	# (num_ffts_per_batch * fft_step) + (window_size - 1) ensures there is exactly enough space to get num_ffts_per_batch and not skip any samples
-	batch_length = (num_ffts_per_batch * fft_step) + (window_size - 1)
-	# subtracting fft_step means next example will start at the next fft location
-	batch_overlap = window_size - fft_step
+	batch_length = (num_ffts_per_batch * step) + (window_size - 1)
+	batch_overlap = window_size - 1
 	batched_inputs = batch_inputs(normed_inputs, axis=time_axis, frame_length=batch_length, overlap=batch_overlap)
 
 	# stft requires time axis to be last always
@@ -160,7 +155,7 @@ def magnitude_model(inputs, channels_last=True):
 
 	# advantage of using fft to generate magnitude over just raw signal is the fft magnitude is separated from the phase component
 	# in the raw signal, the magnitudes are all there, but the sine waves are shifted to make them very uneven
-	stft = tf.contrib.signal.stft(batched_inputs, frame_length=window_size, frame_step=fft_step, window_fn=None)
+	stft = tf.contrib.signal.stft(batched_inputs, frame_length=window_size, frame_step=step, window_fn=None)
 
 	if channels_last:
 		stft = tf.transpose(stft, perm=[0, 2, 3, 1])
@@ -176,12 +171,27 @@ def magnitude_model(inputs, channels_last=True):
 	stft = tf.reshape(stft, stft_shape)
 
 	# TODO: what if it evaluates to a decimal?
-	step_adjusted_length = int(input_length / fft_step)
+	step_adjusted_length = int(input_length / step)
 	up_to_batch_padding = [slice(None), slice(None), slice(None), slice(None)]
 	up_to_batch_padding[time_axis] = slice(step_adjusted_length)
 	# get rid of padding added by batching op
 	stft = stft[up_to_batch_padding]
 
+	return stft
+
+
+def magnitude_model(inputs, channels_last=True):
+	normed_inputs = pre_process(inputs, channels_last=channels_last)
+
+	window_size = 511
+	fft_step = 10
+	time_axis = 0 if channels_last else 1
+	input_length = normed_inputs.shape[time_axis].value
+
+	stft = batched_stft(normed_inputs, window_size, fft_step, channels_last=channels_last)
+
+	# redefine time axis since we added a batch dim now
+	time_axis = 1 if channels_last else 2
 	band_axis = 2 if channels_last else 3
 
 	sig_mag = tf.abs(stft)
