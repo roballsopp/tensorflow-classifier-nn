@@ -35,14 +35,22 @@ def calc_cost(predictions, labels, channels_last=True):
 	return tf.reduce_mean(tf.abs(labels - predictions))
 
 
-def batch_inputs(x, axis, frame_length, overlap):
-	return tf.contrib.signal.frame(
+def batch_inputs(x, frame_length, overlap, channels_last=True):
+	time_axis = 0 if channels_last else 1
+
+	batch = tf.contrib.signal.frame(
 		x,
 		frame_length=frame_length,
 		frame_step=frame_length - overlap,
 		pad_end=True,
-		axis=axis
+		axis=time_axis
 	)
+
+	# if channels were first, they will still be first after batching, but we want the batch dim first
+	if not channels_last:
+		batch = tf.transpose(batch, perm=[1, 0, 2])
+
+	return batch
 
 
 # requires input of shape [..., batches, batch_length]
@@ -147,7 +155,7 @@ def batched_stft(x, window_size, step, channels_last=True):
 	# (num_ffts_per_batch * fft_step) + (window_size - 1) ensures there is exactly enough space to get num_ffts_per_batch and not skip any samples
 	batch_length = (num_ffts_per_batch * step) + (window_size - 1)
 	batch_overlap = window_size - 1
-	batched_inputs = batch_inputs(normed_inputs, axis=time_axis, frame_length=batch_length, overlap=batch_overlap)
+	batched_inputs = batch_inputs(normed_inputs, frame_length=batch_length, overlap=batch_overlap, channels_last=channels_last)
 
 	# stft requires time axis to be last always
 	if channels_last:
