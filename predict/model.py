@@ -1,4 +1,5 @@
 import tensorflow as tf
+import functools
 import nn
 import nn.kernels as kernels
 import nn.kernels.util
@@ -163,7 +164,8 @@ def batched_stft(x, window_size, step, channels_last=True):
 
 	# advantage of using fft to generate magnitude over just raw signal is the fft magnitude is separated from the phase component
 	# in the raw signal, the magnitudes are all there, but the sine waves are shifted to make them very uneven
-	stft = tf.contrib.signal.stft(batched_inputs, frame_length=window_size, frame_step=step, window_fn=None)
+	window_fn = functools.partial(spectral.tukey_window, alpha=0.1)
+	stft = tf.contrib.signal.stft(batched_inputs, frame_length=window_size, frame_step=step, window_fn=window_fn)
 
 	if channels_last:
 		stft = tf.transpose(stft, perm=[0, 2, 3, 1])
