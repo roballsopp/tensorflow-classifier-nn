@@ -4,6 +4,7 @@ __pycache__/
 .idea/
 test_data/
 deps/
+venv/
 MANIFEST
 
 audio_data/
