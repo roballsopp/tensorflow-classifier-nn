@@ -4,7 +4,7 @@ import logging
 import random
 import numpy as np
 import importlib
-from .midi_map_config import ARTICULATIONS, NUM_ARTICULATIONS
+from .midi_map_config import ARTICULATION_NAME_TO_IDX, NUM_ARTICULATIONS, ARTICULATION_PRECEDENCE
 
 MuS_PER_SECOND = 1000000  # number of microseconds in a second
 
@@ -27,7 +27,7 @@ class Markers:
 		mapper = importlib.util.module_from_spec(spec)
 		spec.loader.exec_module(mapper)
 
-		midi_map = mapper.get_map(ARTICULATIONS)
+		midi_map = mapper.get_map(ARTICULATION_NAME_TO_IDX)
 
 		midi_file = MidiFile(marker_path)
 		return Markers(midi_file, midi_map)
@@ -64,6 +64,8 @@ class Markers:
 		self._ticks_per_beat = midi_file.ticks_per_beat
 		self._events = midi_file.tracks[0]
 
+		print(f'found {len(self._events)} midi events')
+
 		if not isinstance(midi_map, tuple):
 			raise TypeError('Invalid midi map. Expected list, got ' + str(type(midi_map)))
 
@@ -96,7 +98,7 @@ class Markers:
 				mappedNote = self._midi_map[evt.note]  # map 128 possible midi notes into NUM_ARTICULATIONS
 				articulations = marker_map.setdefault(markerPosition, np.zeros(NUM_ARTICULATIONS, dtype=np.int8))
 
-				if mappedNote != ARTICULATIONS['NO_HIT']:
+				if mappedNote != ARTICULATION_NAME_TO_IDX['NO_HIT']:
 					articulations[mappedNote] = 1
 
 		return marker_map
@@ -110,15 +112,46 @@ class Markers:
 	# 	y: new Int8Array([1, 1, 0, ... NUM_ARTICULATIONS])
 	# }, ...]
 	# where y is an Int8Array that records which articulation(s) were hit at the samplePosition
+	# OLD IMPLEMENTATION STILL USED BY ExampleBuilders
+	# def get_sample_pos_list(self, sample_rate=44100):
+	# 	markerMap = self.get_sample_pos_map(sample_rate)
+	# 	markerArray = []
+	#
+	# 	for pos, y in markerMap.items():
+	# 		markerArray.append({'pos': int(pos), 'y': y})
+	#
+	# 	markerArray.sort(key=lambda m: m['pos'])
+	#
+	# 	# Not exactly the number of midi events, since some happen simultaneously and are captured inside a single marker
+	# 	logging.info(str(len(markerArray)) + ' markers loaded.')
+	# 	return markerArray
+	# SEE mido docs for a lot of the tempo stuff here: https://mido.readthedocs.io/en/latest/midi_files.html#tempo-and-beat-resolution
 	def get_sample_pos_list(self, sample_rate=44100):
-		markerMap = self.get_sample_pos_map(sample_rate)
-		markerArray = []
+		marker_list = []
+		# current_tempo is in microseconds per beat
+		current_tempo = 0
+		elapsed_mu = 0  # elapsed microsecond-ticks per beat
 
-		for pos, y in markerMap.items():
-			markerArray.append({'pos': int(pos), 'y': y})
+		for evt in self._events:
+			# time is in ticks, so elapsed_mu ends up being in microsecond-ticks per beat
+			#   self._ticks_per_beat is the resolution of the midi file, and remains constant through the whole thing
+			#   therefore, we can defer the division by self._ticks_per_beat to later so we are working in integers only
+			#   this way we do not accumulate small numerical errors by adding floats over and over
+			elapsed_mu += current_tempo * evt.time
 
-		markerArray.sort(key=lambda m: m['pos'])
+			if evt.type == 'set_tempo':
+				# tempo is in microseconds per beat
+				current_tempo = evt.tempo
+			elif evt.type == 'note_on' and evt.velocity != 0:
+				art = self._midi_map[evt.note]  # map 128 possible midi notes into NUM_ARTICULATIONS
 
-		# Not exactly the number of midi events, since some happen simultaneously and are captured inside a single marker
-		logging.info(str(len(markerArray)) + ' markers loaded.')
-		return markerArray
+				if art != ARTICULATION_NAME_TO_IDX['NO_HIT']:
+					marker_list.append({
+						# elapsed_mu / self._ticks_per_beat gets us total elapsed microseconds
+						#   / MuS_PER_SECOND gets us elapsed seconds, and finally * sample_rate gets us elapsed samples
+						'pos': int(round(elapsed_mu / self._ticks_per_beat / MuS_PER_SECOND * sample_rate)),
+						'art': art,
+						'prec': ARTICULATION_PRECEDENCE[art]
+					})
+
+		return marker_list

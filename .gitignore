@@ -5,8 +5,13 @@ __pycache__/
 test_data/
 deps/
 venv/
+creds/
 MANIFEST
 
 audio_data/
 
 *.pyc
+
+experiments/drums/
+
+experiments/mixes/
