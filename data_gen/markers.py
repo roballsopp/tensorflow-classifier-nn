@@ -126,7 +126,7 @@ class Markers:
 	# 	logging.info(str(len(markerArray)) + ' markers loaded.')
 	# 	return markerArray
 	# SEE mido docs for a lot of the tempo stuff here: https://mido.readthedocs.io/en/latest/midi_files.html#tempo-and-beat-resolution
-	def get_sample_pos_list(self, sample_rate=44100):
+	def get_sample_pos_list(self, sample_rate=44100, min_velo=1, max_velo=127):
 		marker_list = []
 		# current_tempo is in microseconds per beat
 		current_tempo = 0
@@ -142,7 +142,7 @@ class Markers:
 			if evt.type == 'set_tempo':
 				# tempo is in microseconds per beat
 				current_tempo = evt.tempo
-			elif evt.type == 'note_on' and evt.velocity != 0:
+			elif evt.type == 'note_on' and min_velo <= evt.velocity <= max_velo:
 				art = self._midi_map[evt.note]  # map 128 possible midi notes into NUM_ARTICULATIONS
 
 				if art != ARTICULATION_NAME_TO_IDX['NO_HIT']:

@@ -66,7 +66,7 @@ class PrimaryWindowWeighting:
 	def get_weight(self, marker_idx):
 		base_marker = self.markers[marker_idx]
 
-		# if this hit has a primary precedence, its weight it always 1
+		# if this hit has a primary precedence, its weight is always 1
 		if base_marker['prec'] == 1:
 			return 1.
 
@@ -149,6 +149,9 @@ if __name__ == "__main__":
 	parser.add_argument('--sr', type=int, help='Specify the sample rate for the output wav file', default=44100)
 	parser.add_argument('--shape', type=str, help='Specify the shape of each label. Can be `point`, `diff`, `hann`, or `half-hann`', default='point')
 	parser.add_argument('--width', type=int, help='Specify the width of each label.')
+	parser.add_argument('--min-velo', type=int, help='Midi events with a velocity less than this value will be ignored', default=1)
+	parser.add_argument('--max-velo', type=int, help='Midi events with a velocity greater than this value will be ignored', default=127)
+	parser.add_argument('--multichannel', action='store_true', help='Output a multichannel wave file with labels for each articulation on a different channel.')
 	parser.add_argument('output_file', type=str, help='Specify the path to the output wav file')
 
 	args = parser.parse_args()
@@ -158,14 +161,33 @@ if __name__ == "__main__":
 	sample_rate = args.sr
 	label_shape = args.shape
 	label_width = args.width
+	min_velo = args.min_velo
+	max_velo = args.max_velo
+	use_multichannel = args.multichannel
+
+	if max_velo > 127:
+		raise ValueError('--max-velo must be no more than 127')
+
+	if min_velo < 1 or min_velo >= max_velo:
+		raise ValueError('--min-velo must be at least 1 and less than --max-velo')
 
 	default_map_dir = os.path.dirname(os.path.realpath(__file__))
 	# change to default_midi_map.py for drums, default_piano_midi_map.py for piano
 	default_map_path = os.path.join(default_map_dir, 'default_midi_map.py')
 	# default_map_path = os.path.join(default_map_dir, 'default_piano_midi_map.py')
+	# default_map_path = os.path.join(default_map_dir, 'reduced_midi_map.py')
 
 	markers = Markers.from_file(marker_file_path, map_path=default_map_path)
-	markers_list = markers.get_sample_pos_list(sample_rate)
+	markers_list = markers.get_sample_pos_list(sample_rate, min_velo=min_velo, max_velo=max_velo)
+
+	art_to_chan = np.zeros((128,), dtype=int) # when not multichannel, all 128 possible articulations go to channel 1
+	chans = 1
+
+	if use_multichannel:
+		unique_articulations = {m['art'] for m in markers_list}
+		art_to_chan = {a: i for i, a in enumerate(unique_articulations)}
+		chans = len(unique_articulations)
+		logging.info(f'multichannel mode on. exporting wav with {chans} channels...')
 
 	# re: label_width below. technically we'd only need to pad the end by half the label_width rounding up, but it
 	#   doesn't matter much as long as the padding is enough for the last full label.
@@ -173,7 +195,7 @@ if __name__ == "__main__":
 	#   signal so there is currently no way to crop/pad the label signal correctly
 	# NOTE that the beginning of the label file does align with the beginning of the original audio signal. No need
 	#   to worry about offsetting the label signal correctly, only need to pad or crop the end
-	wav_data = np.zeros((1, markers_list[-1]['pos'] + label_width))
+	wav_data = np.zeros((chans, markers_list[-1]['pos'] + label_width))
 	output_len = wav_data.shape[1]
 
 	label_shape_data, width = get_shape(label_shape, label_width)
@@ -193,6 +215,7 @@ if __name__ == "__main__":
 
 		scaled_label = label_shape_data[label_start:label_end] * weight
 
-		wav_data[0, start:end] = np.maximum(scaled_label, wav_data[0, start:end])
+		c = art_to_chan[marker['art']]
+		wav_data[c, start:end] = np.maximum(scaled_label, wav_data[0, start:end])
 
 	Wave(wav_data, sample_rate).to_file(output_file_path)
